@@ -202,6 +202,51 @@ def test_personality_analysis_is_compacted_and_persisted(client, monkeypatch) ->
     assert stored[0]["id"] == body["id"]
 
 
+def test_founder_score_runs_without_application_or_pitch_deck(client, monkeypatch) -> None:
+    async def fake_github_scrape(self, handle: str):
+        return {"profile": {"login": handle, "bio": "Product-minded builder"}, "repositories": []}
+
+    async def fake_analyze(self, evidence):
+        return AnalysisRun(
+            scores=PersonalityScores(
+                agreeableness=2.75,
+                conscientiousness=3.5,
+                extraversion=3.5,
+                emotional_stability=3.0,
+                openness=4.25,
+                classification="engineer",
+                confidence=0.8,
+                summary="Evidence-based founder profile.",
+                rationale="Public builder signals were available.",
+            ),
+            response_id="resp_founder_score",
+            input_tokens=100,
+            output_tokens=50,
+        )
+
+    monkeypatch.setattr(orchestrator.GitHubService, "scrape_user", fake_github_scrape)
+    monkeypatch.setattr(
+        analysis_workflow.PersonalityAnalysisService, "analyze_evidence", fake_analyze
+    )
+
+    response = client.post(
+        "/api/v1/founders/score",
+        json={"name": "Independent Founder", "github": "independent-founder"},
+    )
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "processing"
+    assert "application_id" not in body
+
+    result = client.get(f"/api/v1/founders/{body['user_id']}/score")
+    assert result.status_code == 200
+    score = result.json()
+    assert score["job_status"] == "completed"
+    assert score["founder_score"] == 89
+    assert score["components"]["benchmark_fit"]["weight"] == 0.7
+    assert score["analysis"]["founder_score"] == 89
+
+
 def test_application_pipeline_persists_team_categorization(client, monkeypatch) -> None:
     async def fake_github_scrape(self, handle: str):
         return {

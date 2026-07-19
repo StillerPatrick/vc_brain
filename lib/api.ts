@@ -18,6 +18,8 @@ export interface PersonalityAnalysis {
   openness: number;
   classification: FounderClassification;
   confidence: number;
+  founder_score: number | null;
+  founder_score_components: Record<string, { label: string; score: number; weight: number; explanation: string }> | null;
   summary: string;
   rationale: string;
   model: string;
@@ -257,6 +259,18 @@ export interface ApplicationSubmission {
   }>;
 }
 
+export interface FounderScoreResult {
+  user_id: string;
+  name: string | null;
+  job_id: string | null;
+  job_status: JobStatus | null;
+  job_error: string | null;
+  analysis: PersonalityAnalysis | null;
+  founder_score: number | null;
+  components: Record<string, { label: string; score: number; weight: number; explanation: string }> | null;
+  updated_at: string | null;
+}
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "/backend/api/v1";
 
@@ -286,6 +300,22 @@ export function submitApplication(input: ApplicationSubmission) {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function startFounderScore(input: {
+  name?: string;
+  github?: string;
+  linkedin?: string;
+  x?: string;
+}) {
+  return apiFetch<{ user_id: string; job_id: string; status: JobStatus }>("/founders/score", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getFounderScore(userId: string) {
+  return apiFetch<FounderScoreResult>(`/founders/${userId}/score`);
 }
 
 export function uploadPitchDeck(applicationId: string, deck: File) {

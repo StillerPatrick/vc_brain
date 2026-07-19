@@ -9,6 +9,7 @@ from app.models.entities import PersonalityAnalysis, User
 from app.schemas.analysis import PersonalityAnalysisResponse
 from app.services.analysis_workflow import analyze_and_store
 from app.services.exceptions import IntegrationError
+from app.services.founder_score import ensure_founder_score
 
 router = APIRouter()
 
@@ -46,4 +47,10 @@ async def get_user_analyses(
         .where(PersonalityAnalysis.user_id == user_id)
         .order_by(PersonalityAnalysis.created_at.desc())
     )
-    return list(result)
+    analyses = list(result)
+    changed = False
+    for analysis in analyses:
+        changed = ensure_founder_score(analysis) or changed
+    if changed:
+        await session.commit()
+    return analyses

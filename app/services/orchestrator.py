@@ -34,7 +34,13 @@ class ScrapeTargets:
     twitter_max_items: int = 20
 
 
-async def run_scrape_job(job_id: uuid.UUID, user_id: uuid.UUID, targets: ScrapeTargets) -> None:
+async def run_scrape_job(
+    job_id: uuid.UUID,
+    user_id: uuid.UUID,
+    targets: ScrapeTargets,
+    *,
+    finalize_job: bool = True,
+) -> list[BaseException]:
     tasks: list[asyncio.Task[None]] = []
     if targets.github_handle:
         tasks.append(asyncio.create_task(_scrape_github(job_id, user_id, targets.github_handle)))
@@ -73,14 +79,21 @@ async def run_scrape_job(job_id: uuid.UUID, user_id: uuid.UUID, targets: ScrapeT
         if job is None:
             logger.error("Scrape job %s disappeared before completion", job_id)
             return
-        job.completed_at = datetime.now(timezone.utc)
         if failures:
             job.status = JobStatus.failed
             job.error = "; ".join(str(failure) for failure in failures)[:4000]
-        else:
+            job.completed_at = datetime.now(timezone.utc)
+        elif finalize_job:
             job.status = JobStatus.completed
             job.error = None
+            job.completed_at = datetime.now(timezone.utc)
+        else:
+            # A caller is continuing with analysis; the full job is not done.
+            job.status = JobStatus.processing
+            job.error = None
+            job.completed_at = None
         await session.commit()
+    return failures
 
 
 async def _scrape_github(job_id: uuid.UUID, user_id: uuid.UUID, handle: str) -> None:

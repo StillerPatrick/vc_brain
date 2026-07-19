@@ -160,6 +160,8 @@ class PersonalityAnalysis(Base):
     openness: Mapped[float] = mapped_column(Float)
     classification: Mapped[str] = mapped_column(String(32), index=True)
     confidence: Mapped[float] = mapped_column(Float)
+    founder_score: Mapped[int | None] = mapped_column(Integer)
+    founder_score_components: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     summary: Mapped[str] = mapped_column(Text)
     rationale: Mapped[str] = mapped_column(Text)
     model: Mapped[str] = mapped_column(String(255))

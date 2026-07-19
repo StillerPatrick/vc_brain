@@ -33,6 +33,7 @@ from app.schemas.applications import (
 )
 from app.schemas.metadata import startup_metadata_response
 from app.services.application_workflow import FounderWorkItem, process_application
+from app.services.founder_score import ensure_founder_score
 from app.services.orchestrator import ScrapeTargets
 from app.services.overall_scoring import calculate_overall_score
 from app.services.startup_metadata import extract_and_store
@@ -375,6 +376,9 @@ async def _find_existing_user(
 
 
 def _application_response(application: StartupApplication) -> StartupApplicationResponse:
+    for founder in application.founders:
+        if founder.personality_analysis is not None:
+            ensure_founder_score(founder.personality_analysis)
     founders = [
         ApplicationFounderResponse(
             user_id=founder.user.id,

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,6 +32,8 @@ class PersonalityAnalysisResponse(PersonalityScores):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    founder_score: int | None = Field(default=None, ge=0, le=100)
+    founder_score_components: dict[str, dict[str, Any]] | None = None
     model: str
     openai_response_id: str | None
     input_tokens: int | None

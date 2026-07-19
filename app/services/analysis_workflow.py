@@ -14,6 +14,7 @@ from app.models.entities import (
     User,
 )
 from app.services.personality import PersonalityAnalysisService, build_compact_evidence
+from app.services.founder_score import ensure_founder_score
 
 
 async def analyze_and_store(
@@ -54,6 +55,7 @@ async def analyze_and_store(
         output_tokens=run.output_tokens,
         source_summary=source_summary,
     )
+    ensure_founder_score(record)
     session.add(record)
     await session.commit()
     await session.refresh(record)

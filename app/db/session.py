@@ -36,10 +36,28 @@ async def create_database_tables() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
         await connection.run_sync(_add_personality_summary_column)
+        await connection.run_sync(_add_personality_score_columns)
         await connection.run_sync(_add_user_cv_columns)
         await connection.run_sync(_add_startup_metadata_market_size_columns)
         await connection.run_sync(_add_startup_metadata_research_columns)
         await connection.run_sync(_add_founder_commitment_columns)
+    await _backfill_founder_scores()
+
+
+async def _backfill_founder_scores() -> None:
+    """Calculate the new metric for analyses created before it existed."""
+    from sqlalchemy import select
+
+    from app.models.entities import PersonalityAnalysis
+    from app.services.founder_score import ensure_founder_score
+
+    async with AsyncSessionLocal() as session:
+        analyses = list(await session.scalars(select(PersonalityAnalysis)))
+        changed = False
+        for analysis in analyses:
+            changed = ensure_founder_score(analysis) or changed
+        if changed:
+            await session.commit()
 
 
 def _add_personality_summary_column(connection) -> None:
@@ -57,6 +75,18 @@ def _add_personality_summary_column(connection) -> None:
             "WHERE summary IS NULL"
         )
     )
+
+
+def _add_personality_score_columns(connection) -> None:
+    columns = {
+        column["name"] for column in inspect(connection).get_columns("personality_analyses")
+    }
+    definitions = {"founder_score": "INTEGER", "founder_score_components": "JSON"}
+    for column_name, column_type in definitions.items():
+        if column_name not in columns:
+            connection.execute(
+                text(f"ALTER TABLE personality_analyses ADD COLUMN {column_name} {column_type}")
+            )
 
 
 def _add_user_cv_columns(connection) -> None:

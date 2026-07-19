@@ -360,6 +360,11 @@ export function FounderCard({
 
       <FounderRadar founder={founder} color={color} />
 
+      <div className="mt-1 flex items-baseline justify-between">
+        <span className="eyebrow">Founder score</span>
+        <span className="font-mono text-sm font-semibold text-navy">{founder.founderScore}/100</span>
+      </div>
+
       <ul className="mt-1 space-y-1">
         {founder.signals.map((s) => (
           <li key={s} className="flex gap-1.5 text-xs text-sub">
