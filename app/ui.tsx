@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from "react";
 import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import {
   Application,
   ARCHETYPES,
   Axis,
@@ -31,114 +40,60 @@ const TRUST: Record<TrustLevel, { label: string; icon: string; cls: string }> = 
   contradicted: { label: "Contradicted", icon: "✕", cls: "text-critical" },
 };
 
-/* ── founder spider card ──────────────────────────────────── */
+/* ── founder radar card ───────────────────────────────────── */
 
-const SPIDER_CENTER = 110;
-const SPIDER_RADIUS = 78;
-
-function spiderPoint(index: number, value: number, radius = SPIDER_RADIUS) {
-  const angle = -Math.PI / 2 + (index * Math.PI * 2) / BIG5_AXES.length;
-  const distance = radius * (Math.max(0, Math.min(100, value)) / 100);
-  return {
-    x: Number((SPIDER_CENTER + Math.cos(angle) * distance).toFixed(2)),
-    y: Number((SPIDER_CENTER + Math.sin(angle) * distance).toFixed(2)),
-  };
-}
-
-function spiderPolygon(values: number[], radius = SPIDER_RADIUS) {
-  return BIG5_AXES.map((_, index) => {
-    const point = spiderPoint(index, values[index] ?? 0, radius);
-    return `${point.x},${point.y}`;
-  }).join(" ");
-}
-
-function FounderSpider({ founder, color }: { founder: Founder; color: string }) {
+function RadarTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value: number; name: string }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="mt-3">
-      <div className="flex items-center justify-between">
-        <span className="eyebrow">Big Five spider</span>
-        <span className="font-mono text-[9px] text-mut">solid: founder · dashed: benchmark</span>
-      </div>
-      <svg
-        viewBox="0 0 220 220"
-        className="mt-1 h-[210px] w-full"
-        role="img"
-        aria-label={`${founder.name} Big Five spider diagram`}
-        data-testid="founder-spider-diagram"
-      >
-        <title>{`${founder.name} Big Five: ${founder.big5
-          .map((value, index) => `${BIG5_AXES[index]} ${Math.round(value)}`)
-          .join(", ")}`}</title>
-        {[20, 40, 60, 80, 100].map((level) => (
-          <polygon
-            key={level}
-            points={spiderPolygon(BIG5_AXES.map(() => level))}
-            fill="none"
-            stroke="#e1e0d9"
-            strokeWidth={level === 100 ? 1.2 : 0.8}
-          />
-        ))}
-        {BIG5_AXES.map((axis, index) => {
-          const edge = spiderPoint(index, 100);
-          const label = spiderPoint(index, 100, 96);
-          return (
-            <g key={axis}>
-              <line
-                x1={SPIDER_CENTER}
-                y1={SPIDER_CENTER}
-                x2={edge.x}
-                y2={edge.y}
-                stroke="#e1e0d9"
-                strokeWidth="0.8"
-              />
-              <text
-                x={label.x}
-                y={label.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#686660"
-                fontSize="9"
-                fontFamily="var(--font-plex-mono)"
-              >
-                {axis} {Math.round(founder.big5[index] ?? 0)}
-              </text>
-            </g>
-          );
-        })}
-        <polygon
-          points={spiderPolygon(BENCHMARK)}
-          fill="none"
-          stroke="#898781"
-          strokeWidth="1.5"
-          strokeDasharray="4 3"
-        />
-        <polygon
-          points={spiderPolygon(founder.big5)}
-          fill={color}
-          fillOpacity="0.18"
-          stroke={color}
-          strokeWidth="2.5"
-        />
-        {founder.big5.map((value, index) => {
-          const point = spiderPoint(index, value);
-          return <circle key={BIG5_AXES[index]} cx={point.x} cy={point.y} r="2.5" fill={color} />;
-        })}
-      </svg>
+    <div className="rounded border border-line bg-card px-2 py-1 font-mono text-[10px] shadow-sm">
+      <span className="text-mut">{label}</span>{" "}
+      <span className="font-semibold">{payload[0].value}</span>
+      {payload[1] && <span className="text-mut"> · bench {payload[1].value}</span>}
     </div>
   );
 }
 
-export function FounderCard({
-  founder,
-  color,
-  coverageNote,
-  onDeepDive,
-}: {
-  founder: Founder;
-  color: string;
-  coverageNote?: string;
-  onDeepDive?: () => void;
-}) {
+function FounderRadar({ founder, color }: { founder: Founder; color: string }) {
+  const data = BIG5_AXES.map((axis, i) => ({
+    axis,
+    v: founder.big5[i],
+    bench: BENCHMARK[i],
+  }));
+  return (
+    <div className="-mx-2 mt-1 h-[170px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart data={data} margin={{ top: 8, right: 24, bottom: 4, left: 24 }}>
+          <PolarGrid stroke="#e1e0d9" />
+          <PolarAngleAxis
+            dataKey="axis"
+            tick={{ fontSize: 9, fill: "#898781", fontFamily: "var(--font-plex-mono)" }}
+          />
+          <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+          <Radar name={founder.name} dataKey="v" stroke={color} fill={color} fillOpacity={0.14} strokeWidth={2} />
+          <Radar
+            name="Benchmark"
+            dataKey="bench"
+            stroke="#898781"
+            strokeDasharray="4 3"
+            fill="none"
+            strokeWidth={1.5}
+          />
+          <Tooltip content={<RadarTooltip />} />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function FounderCard({ founder, color }: { founder: Founder; color: string }) {
   return (
     <div className="rounded-lg border border-line bg-card p-4">
       <div className="flex items-baseline justify-between gap-2">
@@ -148,15 +103,9 @@ export function FounderCard({
             {founder.role} · <span className="font-medium text-ink">{founder.archetype}</span>
           </div>
         </div>
-        <div className="text-right" title={founder.scoreLabel}>
-          <div className="font-mono text-xl font-semibold leading-none" style={{ color }}>
-            {founder.founderScore}
-          </div>
-          {founder.scoreLabel && <div className="mt-1 font-mono text-[8px] uppercase text-mut">{founder.scoreLabel}</div>}
-        </div>
       </div>
 
-      <FounderSpider founder={founder} color={color} />
+      <FounderRadar founder={founder} color={color} />
 
       <ul className="mt-1 space-y-1">
         {founder.signals.map((s) => (
@@ -165,20 +114,6 @@ export function FounderCard({
           </li>
         ))}
       </ul>
-      {coverageNote && (
-        <div className="mt-3 rounded-md bg-page px-3 py-2 text-[11px] leading-relaxed text-mut">
-          {coverageNote}
-        </div>
-      )}
-      {onDeepDive && (
-        <button
-          type="button"
-          onClick={onDeepDive}
-          className="mt-3 w-full rounded-md border border-line px-3 py-2 text-left text-xs font-semibold text-navy hover:border-navy"
-        >
-          Founder deep dive →
-        </button>
-      )}
       <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-2">
         <span className="eyebrow">Sources</span>
         {founder.corpusSources.map((source) => {
@@ -241,7 +176,8 @@ function fmtRoles(roles: string[]) {
 }
 
 export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: Founder[] }) {
-  const team = founders.map((f) => f.archetype);
+  const analyzed = founders.filter((f) => f.big5.some((v) => v > 0));
+  const team = analyzed.map((f) => f.archetype);
   const evaluated = HIGH_ODDS_COMBOS.map((c) => ({ ...c, missing: comboMissing(team, c.roles) }));
   const matched = evaluated
     .filter((e) => e.missing.length === 0)
@@ -252,8 +188,9 @@ export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: 
   const nearest = [...evaluated].sort(
     (a, b) => a.missing.length - b.missing.length || b.odds - a.odds,
   )[0];
-  const teamMax = BIG5_AXES.map((_, i) => Math.max(...founders.map((f) => f.big5[i])));
-  const gaps = TRAIT_NAMES.filter((_, i) => teamMax[i] < TEAM_BENCH[i]);
+  const teamMax = BIG5_AXES.map((_, i) => Math.max(...analyzed.map((f) => f.big5[i])));
+  const gaps =
+    analyzed.length > 0 ? TRAIT_NAMES.filter((_, i) => teamMax[i] < TEAM_BENCH[i]) : [];
 
   return (
     <div className="mt-5 rounded-lg border border-line bg-card p-4">
@@ -280,11 +217,13 @@ export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: 
       <div className="mt-4 grid gap-4 border-t border-line pt-3 sm:grid-cols-2">
         <div>
           <div className={`font-mono text-2xl font-bold leading-none ${matched ? "text-good-text" : "text-navy"}`}>
-            {(matched ?? nearest).odds}×
+            {analyzed.length > 0 ? `${(matched ?? nearest).odds}×` : "–"}
           </div>
           <div className="eyebrow mt-1">Config odds</div>
           <p className="mt-1 text-xs leading-relaxed text-sub">
-            {matched ? (
+            {analyzed.length === 0 ? (
+              "awaiting founder analyses"
+            ) : matched ? (
               <>
                 Matches <span className="font-semibold text-ink">{fmtRoles(matched.roles)}</span>
                 {upgrade && (
@@ -304,15 +243,19 @@ export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: 
 
         <div>
           <div
-            className={`text-lg font-bold leading-tight ${gaps.length > 0 ? "text-[#8a5f00]" : "text-good-text"}`}
+            className={`text-lg font-bold leading-tight ${
+              analyzed.length === 0 ? "text-mut" : gaps.length > 0 ? "text-[#8a5f00]" : "text-good-text"
+            }`}
           >
-            {gaps.length > 0 ? gaps.join(", ") : "None"}
+            {analyzed.length === 0 ? "–" : gaps.length > 0 ? gaps.join(", ") : "None"}
           </div>
           <div className="eyebrow mt-1">Trait gap{gaps.length === 1 ? "" : "s"}</div>
           <p className="mt-1 text-xs leading-relaxed text-sub">
-            {gaps.length > 0
-              ? "below the successful-team footprint"
-              : "all five traits at successful-team level"}
+            {analyzed.length === 0
+              ? "awaiting founder analyses"
+              : gaps.length > 0
+                ? "below the successful-team footprint"
+                : "all five traits at successful-team level"}
           </p>
         </div>
       </div>
@@ -326,7 +269,7 @@ export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: 
 export function AxisHeader({ axis }: { axis: Axis }) {
   return (
     <div className="flex items-baseline gap-3 py-3">
-      <span className="font-mono text-[28px] font-bold leading-none">{axis.score}</span>
+      <span className="font-mono text-[28px] font-bold leading-none">{axis.score ?? "–"}</span>
       <span className="text-lg font-bold tracking-tight">{axis.name}</span>
       <span className="ml-auto font-mono text-[10px] text-mut">/ 100</span>
     </div>
@@ -349,8 +292,11 @@ export function MarketPanel({ axis, sizing }: { axis: Axis; sizing: SizingRow[] 
       </div>
       <div className="mt-4 grid grid-cols-3 gap-4">
         {sizing.map((row) => {
-          const over = usd(row.claimed) / usd(row.computed) >= 1.5;
-          const under = usd(row.computed) > usd(row.claimed);
+          const claimed = usd(row.claimed);
+          const computed = usd(row.computed);
+          const known = claimed > 0 && computed > 0;
+          const over = known && claimed / computed >= 1.5;
+          const under = known && computed > claimed;
           return (
             <div key={row.metric} className="rounded-lg border border-line bg-card px-3 py-2.5">
               <div className="eyebrow">{row.metric}</div>
@@ -360,7 +306,8 @@ export function MarketPanel({ axis, sizing }: { axis: Axis; sizing: SizingRow[] 
                   over ? "text-critical" : under ? "text-good-text" : "text-sub"
                 }`}
               >
-                {over ? "▼" : under ? "▲" : "≈"} {row.computed}
+                {known ? `${over ? "▼" : under ? "▲" : "≈"} ` : ""}
+                {row.computed}
               </div>
             </div>
           );
@@ -384,6 +331,15 @@ const THREAT = {
 export function CompetitorsPanel({ competitors }: { competitors: Competitor[] }) {
   return (
     <div className="rounded-lg border border-line bg-card px-4 py-1">
+      {competitors.length === 0 && (
+        <div className="py-2.5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[13px] font-semibold text-mut">–</span>
+            <span className="ml-auto shrink-0 font-mono text-[10px] font-semibold text-mut">NONE</span>
+          </div>
+          <p className="mt-0.5 text-xs leading-snug text-sub">No competitors identified yet.</p>
+        </div>
+      )}
       {competitors.slice(0, 3).map((c) => {
         const t = THREAT[c.threat];
         return (
@@ -460,13 +416,15 @@ const RECOMMENDATION: Record<Decision, { label: string; cls: string }> = {
 };
 
 export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
-  const rec = RECOMMENDATION[memo.recommendation];
+  const rec = memo.recommendation
+    ? RECOMMENDATION[memo.recommendation]
+    : { label: "Pending", cls: "text-mut" };
   return (
     <div className="rounded-lg border border-line bg-card p-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-3">
         <span className={`text-lg font-bold tracking-tight ${rec.cls}`}>{rec.label}</span>
         <span className="ml-auto font-mono text-[28px] font-bold leading-none">
-          {memo.score}
+          {memo.score ?? "–"}
           <span className="text-[10px] font-semibold text-mut"> / 100</span>
         </span>
       </div>
@@ -500,11 +458,15 @@ export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
 
       <div className="mt-4 border-t border-line pt-3">
         <div className="eyebrow">Traction &amp; KPIs</div>
-        <div className="grid gap-x-8 sm:grid-cols-2">
-          {claims.map((c) => (
-            <ClaimRow key={c.text} claim={c} />
-          ))}
-        </div>
+        {claims.length === 0 ? (
+          <p className="py-2.5 text-xs text-sub">No claims verified yet.</p>
+        ) : (
+          <div className="grid gap-x-8 sm:grid-cols-2">
+            {claims.map((c) => (
+              <ClaimRow key={c.text} claim={c} />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 border-t border-line pt-3">
