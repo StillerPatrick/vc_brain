@@ -31,21 +31,36 @@ class ApifyService:
             "maxReactions": max_reactions,
             "postNestedReactions": True,
         }
-        items = await self._run_actor(settings.linkedin_actor_id, run_input)
+        # HarvestAPI's posts actor creates named storages, which the default
+        # limited-permission sandbox forbids — it needs full permissions plus a
+        # one-time approval in the Apify console.
+        items = await self._run_actor(
+            settings.linkedin_actor_id,
+            run_input,
+            permission_level="FULL_PERMISSIONS",
+        )
         return [item for item in items if include_reposts or not item.get("repostedBy")]
 
     async def scrape_linkedin_profile(self, profile_url: str) -> dict[str, Any]:
         """Fetch full profile details (experience, education, skills, …)."""
         items = await self._run_actor(
-            settings.linkedin_profile_actor_id, {"queries": [profile_url]}
+            settings.linkedin_profile_actor_id,
+            {"startUrls": [{"url": profile_url}]},
         )
         return items[0]
 
     async def _run_actor(
-        self, actor_id: str, run_input: dict[str, Any]
+        self,
+        actor_id: str,
+        run_input: dict[str, Any],
+        *,
+        permission_level: str | None = None,
     ) -> list[dict[str, Any]]:
         try:
-            run = await self.client.actor(actor_id).call(run_input=run_input)
+            run = await self.client.actor(actor_id).call(
+                run_input=run_input,
+                force_permission_level=permission_level,
+            )
         except Exception as exc:
             raise IntegrationError(f"Apify actor {actor_id!r} failed: {exc}") from exc
 

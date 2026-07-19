@@ -584,10 +584,21 @@ const PMF_FACTOR_PLACEHOLDERS = [
   { key: "competition", label: "Competitive position", score: null, maxScore: 10 },
 ];
 
+/** Uniform axis verdict (brief: rated bullish, neutral, or bear). */
+function axisVerdict(
+  score: number | null | undefined,
+  threshold = 50,
+): { label: string; tone: "good" | "neutral" | "bad" } | null {
+  if (score == null) return null;
+  if (score >= 70) return { label: "BULLISH", tone: "good" };
+  if (score >= threshold) return { label: "NEUTRAL", tone: "neutral" };
+  return { label: "BEARISH", tone: "bad" };
+}
+
 function VerdictChip({
   verdict,
 }: {
-  verdict: { label: string; positive: boolean } | null;
+  verdict: { label: string; tone: "good" | "neutral" | "bad" } | null;
 }) {
   if (!verdict) {
     return (
@@ -596,12 +607,14 @@ function VerdictChip({
       </span>
     );
   }
+  const tone =
+    verdict.tone === "good"
+      ? "bg-good/10 text-good-text"
+      : verdict.tone === "neutral"
+        ? "bg-warn/15 text-[#8a5f00]"
+        : "bg-critical/10 text-critical";
   return (
-    <span
-      className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
-        verdict.positive ? "bg-good/10 text-good-text" : "bg-critical/10 text-critical"
-      }`}
-    >
+    <span className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${tone}`}>
       {verdict.label}
     </span>
   );
@@ -622,7 +635,7 @@ export function FounderScorePanel({
       <div className="border-t border-line py-3">
         <div className="flex items-center justify-between gap-3">
           <span className="font-mono text-[10px] uppercase text-mut">Hybrid team score</span>
-          {!assessment && <VerdictChip verdict={null} />}
+          <VerdictChip verdict={axisVerdict(axis.score)} />
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-sub">
           {assessment?.rationale ?? "–"}
@@ -718,16 +731,7 @@ export function MarketPanel({
             <span className="font-mono text-[10px] uppercase text-mut">
               €{(assessment?.investmentAmountEur ?? 100_000).toLocaleString("en-US")} check
             </span>
-            <VerdictChip
-              verdict={
-                assessment
-                  ? {
-                      label: assessment.worthInvesting ? "INVEST" : "PASS",
-                      positive: assessment.worthInvesting,
-                    }
-                  : null
-              }
-            />
+            <VerdictChip verdict={axisVerdict(axis.score, assessment?.threshold)} />
           </div>
           <p className="mt-1.5 text-xs leading-relaxed text-sub">
             {assessment?.rationale ?? "–"}
@@ -965,16 +969,7 @@ export function IdeaPanel({
         <div className="border-t border-line py-3">
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-[10px] uppercase text-mut">PMF evidence proxy</span>
-            <VerdictChip
-              verdict={
-                assessment
-                  ? {
-                      label: assessment.verdict.toUpperCase(),
-                      positive: assessment.passesThreshold,
-                    }
-                  : null
-              }
-            />
+            <VerdictChip verdict={axisVerdict(axis.score, assessment?.threshold)} />
           </div>
           <p className="mt-1.5 text-xs leading-relaxed text-sub">
             {assessment?.rationale ?? "–"}
@@ -1279,13 +1274,13 @@ export function DecisionRail({
               </button>
               <button
                 onClick={() => onDecide("pass")}
-                className="rounded-md bg-critical px-4 py-2 text-sm font-semibold text-white hover:bg-[#b52f2f]"
+                className="rounded-md border border-critical/40 px-4 py-2 text-sm font-medium text-critical hover:border-critical hover:bg-critical/5"
               >
                 Pass
               </button>
               <button
                 onClick={() => onDecide("fund")}
-                className="rounded-md bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-[#104281]"
+                className="rounded-md bg-good-text px-5 py-2 text-sm font-semibold text-white hover:bg-[#005200]"
               >
                 Fund $100K
               </button>

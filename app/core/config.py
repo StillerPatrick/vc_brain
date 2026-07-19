@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     apify_api_token: str | None = None
     linkedin_actor_id: str = "harvestapi/linkedin-profile-posts"
-    linkedin_profile_actor_id: str = "harvestapi/linkedin-profile-scraper"
+    linkedin_profile_actor_id: str = "anchor/linkedin-profile-enrichment"
 
     x_base_url: str = "https://x.com"
     x_auth_token: str | None = None

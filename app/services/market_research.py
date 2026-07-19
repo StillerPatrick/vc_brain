@@ -275,7 +275,9 @@ class StartupMarketResearchAgent:
                         parallel_tool_calls=True,
                         reasoning={"effort": "medium"},
                         text={"verbosity": "low"},
-                        max_output_tokens=5000,
+                        # must fit reasoning AND the full submit_research JSON —
+                        # a truncated function call is silently dropped
+                        max_output_tokens=10_000,
                         prompt_cache_key=RESEARCH_PROMPT_VERSION,
                         store=False,
                     )
@@ -296,9 +298,19 @@ class StartupMarketResearchAgent:
                     item for item in response.output if item.type == "function_call"
                 ]
                 if not calls:
-                    raise IntegrationError(
-                        "Research agent stopped without submitting structured research"
+                    # a text-only or truncated turn is recoverable — nudge the
+                    # agent back to tools instead of failing the whole run
+                    input_items.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Respond only with tool calls. Continue the "
+                                "research and call submit_research exactly once "
+                                "when the result is complete."
+                            ),
+                        }
                     )
+                    continue
 
                 for call in calls:
                     arguments = json.loads(call.arguments)
@@ -310,7 +322,23 @@ class StartupMarketResearchAgent:
                                 _tool_output(call.call_id, {"error": str(exc)})
                             )
                             continue
-                        sources = _crucial_sources(value, tavily.sources)
+                        try:
+                            sources = _crucial_sources(value, tavily.sources)
+                        except IntegrationError as exc:
+                            # e.g. hallucinated citations — give the agent a
+                            # chance to re-source instead of failing the run
+                            input_items.append(
+                                _tool_output(
+                                    call.call_id,
+                                    {
+                                        "error": f"{exc} — fetch those URLs with "
+                                        "fetch_website first, or cite only URLs "
+                                        "the tools actually returned, then call "
+                                        "submit_research again."
+                                    },
+                                )
+                            )
+                            continue
                         return MarketResearchRun(
                             value=value,
                             sources=sources,
@@ -381,7 +409,10 @@ def _crucial_sources(
         for url in kpi.source_urls:
             supports.setdefault(_canonical_url(str(url)), set()).add("Traction")
 
-    missing = [url for url in supports if url not in available]
+    # match on a lenient key so www./trailing-slash/case variants of an
+    # inspected URL don't fail the run
+    available_by_key = {_match_key(url): source for url, source in available.items()}
+    missing = [url for url in supports if _match_key(url) not in available_by_key]
     if missing:
         raise IntegrationError(
             "Research agent cited URLs it did not inspect through Tavily: "
@@ -389,11 +420,22 @@ def _crucial_sources(
         )
 
     snapshots = []
+    seen: set[str] = set()
     for url, labels in supports.items():
-        source = available[url]
-        source.supports = sorted(labels)
-        snapshots.append(source)
+        key = _match_key(url)
+        source = available_by_key[key]
+        source.supports = sorted(set(source.supports) | labels)
+        if key not in seen:
+            seen.add(key)
+            snapshots.append(source)
     return snapshots
+
+
+def _match_key(url: str) -> str:
+    parsed = urlparse(url)
+    host = parsed.netloc.casefold().removeprefix("www.")
+    path = parsed.path.rstrip("/") or "/"
+    return f"{host}{path}?{parsed.query}"
 
 
 def _canonical_url(value: str) -> str:
