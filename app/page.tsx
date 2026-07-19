@@ -59,12 +59,20 @@ export default function Home() {
           <Logo />
         </Link>
         <span className="eyebrow hidden md:inline">$100K checks · 24 hours</span>
-        <Link
-          href="/apply"
-          className="ml-auto rounded-md bg-navy px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#104281]"
-        >
-          Apply
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/console"
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy hover:text-navy"
+          >
+            Console
+          </Link>
+          <Link
+            href="/apply"
+            className="rounded-md bg-navy px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#104281]"
+          >
+            Apply
+          </Link>
+        </div>
       </header>
 
       {/* ── hero ── */}
