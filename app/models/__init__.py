@@ -6,6 +6,8 @@ from app.models.entities import (
     PersonalityAnalysis,
     ScrapeJob,
     StartupApplication,
+    StartupMetadata,
+    MetadataStatus,
     TwitterData,
     User,
 )
@@ -18,6 +20,8 @@ __all__ = [
     "PersonalityAnalysis",
     "ScrapeJob",
     "StartupApplication",
+    "StartupMetadata",
+    "MetadataStatus",
     "TwitterData",
     "User",
 ]

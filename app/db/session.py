@@ -21,9 +21,11 @@ async def create_database_tables() -> None:
         ApplicationStatus,
         GitHubData,
         LinkedInData,
+        MetadataStatus,
         PersonalityAnalysis,
         ScrapeJob,
         StartupApplication,
+        StartupMetadata,
         TwitterData,
         User,
     )

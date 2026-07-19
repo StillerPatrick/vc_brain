@@ -65,3 +65,60 @@ Design a relational database using SQLAlchemy models:
 *   Write modular, clean code. Do not put everything in `main.py`.
 *   Use Pydantic V2 for all request/response models.
 *   Implement standard error handling and HTTP exceptions (e.g., 404 for missing data, 500 for Apify failures).
+
+# Current Implementation Handoff
+
+## Application and Pitch-Deck Flow
+*   The Next.js application form is implemented in `app/apply/page.tsx`.
+*   The pitch-deck chooser accepts PDF files only and keeps the selected `File`, not just its filename.
+*   Submission is a two-step operation:
+    1. `POST /api/v1/applications` creates the startup application and starts founder diligence.
+    2. `POST /api/v1/metadata/{application_id}` uploads and stores the PDF, then starts metadata extraction with `BackgroundTasks`.
+*   Keep these operations non-blocking. PDF storage completes before the metadata endpoint returns `202`; rendering and OpenAI extraction run afterward.
+
+## Startup Metadata API
+The metadata router is in `app/api/routes/metadata.py` and exposes:
+*   `POST /api/v1/metadata/{application_id}` - Upload or replace a pitch-deck PDF; maximum size defaults to 20 MB.
+*   `GET /api/v1/metadata/{application_id}` - Retrieve extraction status and structured startup metadata.
+*   `GET /api/v1/metadata/{application_id}/deck` - Stream the stored PDF.
+*   `GET /api/v1/metadata/{application_id}/first-slide` - Stream the generated PNG preview.
+
+Uploads must have a `.pdf` filename, an accepted PDF content type, and a PDF signature within the first 1,024 bytes. Re-uploading replaces the stored deck and resets extraction state.
+
+## OpenAI Extraction
+*   `app/services/startup_metadata.py` sends the complete PDF to the OpenAI Responses API as an `input_file`.
+*   Structured output uses the Pydantic model `ExtractedStartupMetadata` from `app/schemas/metadata.py`.
+*   Output consists of the deck-derived company name and exactly three factual summary sentences.
+*   Deck text is treated as untrusted data and must never override the system extraction instructions.
+*   The service uses `OPENAI_MODEL` (currently defaulting to `gpt-5.6-terra`), `OPENAI_API_KEY`, and `OPENAI_TIMEOUT_SECONDS`.
+*   Do not silently fall back to applicant-entered values when extraction fails. Persist `failed` status and the error instead.
+
+## PDF Preview and Storage
+*   PyMuPDF renders the first page at 2x scale as PNG.
+*   The `startup_metadata` table stores the original PDF and preview as binary columns so both SQLite and PostgreSQL deployments retain the assets.
+*   `StartupMetadata` is a one-to-one child of `StartupApplication` and is deleted with its application.
+*   The table also stores status, extracted values, OpenAI response/model/token metadata, errors, and timestamps.
+*   SQLAlchemy `Base.metadata.create_all` performs the current idempotent schema migration during FastAPI startup. The active development SQLite database has already been migrated.
+
+## Frontend Company Data Area
+*   `StartupApplicationResponse` includes optional nested `metadata`.
+*   `lib/api.ts` contains the metadata types, multipart upload helper, and asset URL helper.
+*   `app/live-application.tsx` renders a Company Data section containing extraction status, company name, the three-sentence summary, first-slide preview, and a link to the stored PDF.
+*   Investor-console polling refreshes live applications every five seconds, so processing metadata appears when complete.
+
+## Configuration and Dependencies
+*   `MAX_PITCH_DECK_BYTES` controls upload size and defaults to `20971520` bytes.
+*   Required PDF dependencies are `python-multipart` and `pymupdf` in `requirements.txt`.
+*   The OpenAI developer-docs MCP server is configured globally as `openaiDeveloperDocs`; restart Codex before expecting it to be available in a new tool session.
+
+## Verification
+Run these checks after related changes:
+
+```bash
+python -m pytest -q
+npm run lint
+npm run build
+git diff --check
+```
+
+Pitch-deck endpoint, storage, preview, and validation coverage is in `tests/test_metadata.py`. The current baseline is 14 passing backend tests and a successful Next.js production build.

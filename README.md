@@ -172,6 +172,25 @@ curl http://localhost:8000/api/v1/applications/APPLICATION_ID
 curl http://localhost:8000/api/v1/applications
 ```
 
+Upload and analyze a pitch deck after creating the application. The PDF is stored
+in the application database immediately; first-slide rendering and structured
+OpenAI extraction run in the background:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/metadata/APPLICATION_ID \
+  -F 'deck=@pitch-deck.pdf;type=application/pdf'
+
+curl http://localhost:8000/api/v1/metadata/APPLICATION_ID
+curl http://localhost:8000/api/v1/metadata/APPLICATION_ID/deck --output pitch-deck.pdf
+curl http://localhost:8000/api/v1/metadata/APPLICATION_ID/first-slide --output first-slide.png
+```
+
+The upload endpoint accepts PDF files up to 20 MB and returns `202 Accepted`.
+The metadata response moves from `processing` to `completed` or `failed`, and
+contains the deck-derived company name and exactly three summary sentences.
+The `startup_metadata` table is created idempotently during application startup,
+so existing SQLite and PostgreSQL databases are migrated without deleting data.
+
 ## Docker deployment
 
 Docker Compose starts the frontend and API, with a persistent SQLite database.

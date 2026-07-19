@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.entities import ApplicationStatus, JobStatus
 from app.schemas.analysis import PersonalityAnalysisResponse
+from app.schemas.metadata import StartupMetadataResponse
 
 
 class ApplicationFounderRequest(BaseModel):
@@ -72,6 +73,7 @@ class StartupApplicationResponse(BaseModel):
     error: str | None
     created_at: datetime
     completed_at: datetime | None
+    metadata: StartupMetadataResponse | None
     founders: list[ApplicationFounderResponse]
 
 

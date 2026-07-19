@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ApplicationFounder, StartupApplication } from "@/lib/api";
+import {
+  ApplicationFounder,
+  metadataAssetUrl,
+  StartupApplication,
+} from "@/lib/api";
 import { Founder } from "@/lib/data";
 import { FOUNDER_COLORS, FounderCard } from "./ui";
 
@@ -212,6 +216,64 @@ export function LiveApplicationView({ application }: { application: StartupAppli
           <span>{application.sector ?? "Sector not supplied"}</span>
           <span>{application.location ?? "Location not supplied"}</span>
         </div>
+
+        <section className="mt-6 rounded-lg border border-line bg-card p-4">
+          <div className="eyebrow">Company data</div>
+          {application.metadata ? (
+            <div className="mt-3 grid gap-5 lg:grid-cols-[minmax(280px,2fr)_3fr]">
+              <div>
+                {application.metadata.first_slide_available ? (
+                  // The image is served by our authenticated backend asset endpoint.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={metadataAssetUrl(application.id, "first-slide")}
+                    alt={`First slide of ${application.metadata.deck_filename}`}
+                    className="aspect-video w-full rounded-md border border-line bg-page object-contain"
+                  />
+                ) : (
+                  <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-line bg-page px-4 text-center font-mono text-xs text-mut">
+                    {application.metadata.status === "processing"
+                      ? "Generating first-slide preview…"
+                      : "First-slide preview unavailable"}
+                  </div>
+                )}
+                <a
+                  href={metadataAssetUrl(application.id, "deck")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-xs font-semibold text-navy hover:underline"
+                >
+                  Open {application.metadata.deck_filename} ↗
+                </a>
+              </div>
+              <div>
+                <div className="font-mono text-[10px] uppercase text-mut">
+                  Pitch-deck metadata · {application.metadata.status}
+                </div>
+                <h2 className="mt-1 text-xl font-bold">
+                  {application.metadata.company_name ?? application.company}
+                </h2>
+                {application.metadata.summary_sentences ? (
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-sub">
+                    {application.metadata.summary_sentences.map((sentence, index) => (
+                      <p key={`${index}-${sentence}`}>{sentence}</p>
+                    ))}
+                  </div>
+                ) : application.metadata.status === "processing" ? (
+                  <p className="mt-3 font-mono text-xs text-mut">
+                    Extracting the three-sentence company summary…
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs text-critical">
+                    {application.metadata.error ?? "Metadata extraction failed."}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 font-mono text-xs text-mut">No pitch deck uploaded.</p>
+          )}
+        </section>
 
         <section className="mt-6">
           <div className="eyebrow mb-2">Founders</div>

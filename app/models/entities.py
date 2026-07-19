@@ -3,7 +3,18 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -24,6 +35,12 @@ class ApplicationStatus(str, enum.Enum):
     processing = "processing"
     completed = "completed"
     partial = "partial"
+    failed = "failed"
+
+
+class MetadataStatus(str, enum.Enum):
+    processing = "processing"
+    completed = "completed"
     failed = "failed"
 
 
@@ -148,6 +165,44 @@ class StartupApplication(Base):
         back_populates="application",
         cascade="all, delete-orphan",
         order_by="ApplicationFounder.position",
+    )
+    startup_metadata: Mapped["StartupMetadata | None"] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class StartupMetadata(Base):
+    __tablename__ = "startup_metadata"
+    __table_args__ = (UniqueConstraint("application_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("startup_applications.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[MetadataStatus] = mapped_column(
+        Enum(MetadataStatus, native_enum=False),
+        default=MetadataStatus.processing,
+        index=True,
+    )
+    company_name: Mapped[str | None] = mapped_column(String(255))
+    summary_sentences: Mapped[list[str] | None] = mapped_column(JSON)
+    deck_filename: Mapped[str] = mapped_column(String(512))
+    deck_content_type: Mapped[str] = mapped_column(String(100), default="application/pdf")
+    deck_data: Mapped[bytes] = mapped_column(LargeBinary)
+    first_slide_data: Mapped[bytes | None] = mapped_column(LargeBinary)
+    first_slide_content_type: Mapped[str | None] = mapped_column(String(100))
+    model: Mapped[str | None] = mapped_column(String(255))
+    openai_response_id: Mapped[str | None] = mapped_column(String(255))
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    application: Mapped[StartupApplication] = relationship(
+        back_populates="startup_metadata"
     )
 
 

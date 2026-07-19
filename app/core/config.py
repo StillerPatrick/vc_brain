@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.6-terra"
     openai_timeout_seconds: float = 60.0
+    max_pitch_deck_bytes: int = 20 * 1024 * 1024
 
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 

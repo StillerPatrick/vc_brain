@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getApplication, StartupApplication, submitApplication } from "@/lib/api";
+import {
+  getApplication,
+  StartupApplication,
+  submitApplication,
+  uploadPitchDeck,
+} from "@/lib/api";
 
 interface Member {
   name: string;
@@ -32,12 +37,30 @@ const BRANCHES = [
 const input =
   "w-full rounded-md border border-line bg-card px-3 py-2 text-sm outline-none placeholder:text-mut focus:border-navy";
 
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
-  return (
-    <label className="block">
+function Field({
+  label,
+  children,
+  hint,
+  containerOnly = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+  containerOnly?: boolean;
+}) {
+  const content = (
+    <>
       <span className="eyebrow">{label}</span>
       <div className="mt-1">{children}</div>
       {hint && <p className="mt-1 text-[11px] text-mut">{hint}</p>}
+    </>
+  );
+
+  if (containerOnly) return <div className="block">{content}</div>;
+
+  return (
+    <label className="block">
+      {content}
     </label>
   );
 }
@@ -49,6 +72,8 @@ export default function Apply() {
   const [location, setLocation] = useState("");
   const [team, setTeam] = useState<Member[]>([{ ...EMPTY_MEMBER }]);
   const [deckName, setDeckName] = useState("");
+  const [deckFile, setDeckFile] = useState<File | null>(null);
+  const deckInputRef = useRef<HTMLInputElement>(null);
   const [application, setApplication] = useState<StartupApplication | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -176,6 +201,17 @@ export default function Apply() {
               })),
             });
             setApplicationId(result.application_id);
+            if (deckFile) {
+              try {
+                await uploadPitchDeck(result.application_id, deckFile);
+              } catch (error) {
+                setSubmitError(
+                  error instanceof Error
+                    ? `Application saved, but the pitch deck upload failed: ${error.message}`
+                    : "Application saved, but the pitch deck upload failed.",
+                );
+              }
+            }
           } catch (error) {
             setSubmitError(error instanceof Error ? error.message : "Submission failed");
           } finally {
@@ -233,16 +269,42 @@ export default function Apply() {
                 placeholder="Berlin, DE"
               />
             </Field>
-            <Field label="Pitch deck" hint="PDF preferred — claims in it will be verified against public sources.">
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-line bg-page px-3 py-2 text-sm text-sub hover:border-navy">
+            <Field
+              label="Pitch deck"
+              hint="PDF only — claims in it will be verified against public sources."
+              containerOnly
+            >
+              <button
+                type="button"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-line bg-page px-3 py-2 text-left text-sm text-sub hover:border-navy focus:border-navy focus:outline-none"
+                onClick={() => deckInputRef.current?.click()}
+              >
                 <span className="font-mono text-[11px]">{deckName || "Upload PDF"}</span>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={(e) => setDeckName(e.target.files?.[0]?.name ?? "")}
-                />
-              </label>
+              </button>
+              <input
+                ref={deckInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                aria-label="Pitch deck PDF"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  if (
+                    file &&
+                    file.type !== "application/pdf" &&
+                    !file.name.toLowerCase().endsWith(".pdf")
+                  ) {
+                    setDeckFile(null);
+                    setDeckName("");
+                    setSubmitError("Pitch deck must be a PDF file.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setDeckFile(file);
+                  setDeckName(file?.name ?? "");
+                  setSubmitError(null);
+                }}
+              />
             </Field>
           </div>
         </div>

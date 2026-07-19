@@ -51,6 +51,24 @@ export interface TeamCategorization {
   analyzed_count: number;
 }
 
+export type MetadataStatus = "processing" | "completed" | "failed";
+
+export interface StartupMetadata {
+  id: string;
+  application_id: string;
+  status: MetadataStatus;
+  company_name: string | null;
+  summary_sentences: string[] | null;
+  deck_filename: string;
+  deck_content_type: string;
+  deck_available: boolean;
+  first_slide_available: boolean;
+  model: string | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
 export interface StartupApplication {
   id: string;
   company: string;
@@ -63,6 +81,7 @@ export interface StartupApplication {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  metadata: StartupMetadata | null;
   founders: ApplicationFounder[];
 }
 
@@ -86,9 +105,13 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "/backend/api/v1";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData =
+    typeof FormData !== "undefined" && init?.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: isFormData
+      ? init?.headers
+      : { "Content-Type": "application/json", ...init?.headers },
     cache: "no-store",
   });
   if (!response.ok) {
@@ -107,6 +130,22 @@ export function submitApplication(input: ApplicationSubmission) {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function uploadPitchDeck(applicationId: string, deck: File) {
+  const formData = new FormData();
+  formData.append("deck", deck);
+  return apiFetch<{ metadata_id: string; status: MetadataStatus }>(
+    `/metadata/${applicationId}`,
+    { method: "POST", body: formData },
+  );
+}
+
+export function metadataAssetUrl(
+  applicationId: string,
+  asset: "deck" | "first-slide",
+) {
+  return `${API_BASE_URL}/metadata/${applicationId}/${asset}`;
 }
 
 export function getApplication(applicationId: string) {
