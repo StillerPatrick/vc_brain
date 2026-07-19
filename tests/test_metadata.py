@@ -18,6 +18,8 @@ from app.models.entities import (
 )
 from app.services.startup_metadata import render_first_slide
 from app.services.market_research import SourceSnapshot, _crucial_sources
+from app.services.market_scoring import calculate_market_metric
+from app.services.product_market_fit import calculate_product_market_fit
 from app.schemas.metadata import StartupResearchResult
 
 
@@ -251,8 +253,57 @@ def test_research_migration_adds_separate_analysis_columns() -> None:
         "investment_hypotheses",
         "traction_kpis",
         "research_status",
+        "market_score",
+        "market_metric",
+        "product_reality_check",
+        "product_market_fit_score",
+        "product_market_fit_metric",
     }.issubset(columns)
     assert status_value == "processing"
+
+
+def test_market_metric_prioritizes_tam_sam_som_for_100k_decision() -> None:
+    metric = calculate_market_metric(
+        tam=4_000_000_000,
+        sam=500_000_000,
+        som=50_000_000,
+        market_sizing={
+            key: {"source_urls": [f"https://example.com/{key}"]}
+            for key in ("tam", "sam", "som")
+        },
+        traction_kpis=[
+            {"trust": "verified", "confidence": 90},
+            {"trust": "reported", "confidence": 70},
+        ],
+        competitors=[{"threat": "medium"}, {"threat": "low"}],
+    )
+
+    assert 0 <= metric.score <= 100
+    assert metric.score >= metric.investment_threshold
+    assert metric.worth_investing is True
+    assert metric.investment_amount_eur == 100_000
+    assert sum(item.max_score for item in metric.components[:3]) == 80
+
+
+def test_product_market_fit_prioritizes_customer_evidence_and_uses_swot() -> None:
+    metric = calculate_product_market_fit(
+        reality_check={"score": 80},
+        strengths=[{"impact": "high"}],
+        weaknesses=[{"impact": "low"}],
+        opportunities=[{"impact": "high"}],
+        threats=[{"impact": "medium"}],
+        traction_kpis=[
+            {"trust": "verified", "confidence": 90},
+            {"trust": "verified", "confidence": 80},
+            {"trust": "reported", "confidence": 70},
+        ],
+        competitors=[{"threat": "medium"}, {"threat": "low"}],
+    )
+
+    assert metric.score >= metric.threshold
+    assert metric.passes_threshold is True
+    assert [item.max_score for item in metric.components] == [40, 30, 20, 10]
+    assert metric.methodology_sources
 
 
 def test_linkedin_cv_migration_adds_columns_to_existing_users() -> None:
@@ -350,6 +401,12 @@ def test_final_research_keeps_only_cited_tavily_sources() -> None:
                     "source_urls": ["https://example.com/evidence"],
                 }
             ],
+            "reality_check": {
+                "innovation": "The product automates a documented manual workflow.",
+                "rationale": "Demand exists, but public adoption evidence remains early.",
+                "score": 60,
+                "source_urls": ["https://example.com/evidence"],
+            },
         }
     )
     available = {
@@ -378,6 +435,7 @@ def test_final_research_keeps_only_cited_tavily_sources() -> None:
         "Competitor",
         "Hypothesis",
         "Opportunity",
+        "Reality check",
         "SAM",
         "SOM",
         "Strength",

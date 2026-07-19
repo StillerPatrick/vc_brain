@@ -18,6 +18,8 @@ from app.models.entities import (
 from app.schemas.metadata import ExtractedStartupMetadata
 from app.services.exceptions import IntegrationError
 from app.services.market_research import StartupMarketResearchAgent
+from app.services.market_scoring import calculate_market_metric
+from app.services.product_market_fit import calculate_product_market_fit
 
 
 PROMPT_VERSION = "pitch-deck-metadata-v3"
@@ -240,6 +242,28 @@ async def _research_and_store(session, record: StartupMetadata) -> None:
     record.traction_kpis = [
         item.model_dump(mode="json") for item in research.value.traction_kpis
     ]
+    record.product_reality_check = research.value.reality_check.model_dump(mode="json")
+    metric = calculate_market_metric(
+        tam=research.value.tam.value_usd,
+        sam=research.value.sam.value_usd,
+        som=research.value.som.value_usd,
+        market_sizing=record.market_sizing,
+        traction_kpis=record.traction_kpis,
+        competitors=record.competitors,
+    )
+    record.market_score = metric.score
+    record.market_metric = metric.model_dump(mode="json")
+    product_market_fit = calculate_product_market_fit(
+        reality_check=record.product_reality_check,
+        strengths=record.swot_strengths,
+        weaknesses=record.swot_weaknesses,
+        opportunities=record.swot_opportunities,
+        threats=record.swot_threats,
+        traction_kpis=record.traction_kpis,
+        competitors=record.competitors,
+    )
+    record.product_market_fit_score = product_market_fit.score
+    record.product_market_fit_metric = product_market_fit.model_dump(mode="json")
     session.add_all(
         [
             StartupResearchSource(

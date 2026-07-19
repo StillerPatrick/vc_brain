@@ -102,6 +102,11 @@ async def upload_pitch_deck(
         record.estimated_sam = None
         record.estimated_som = None
         record.market_sizing = None
+        record.market_score = None
+        record.market_metric = None
+        record.product_reality_check = None
+        record.product_market_fit_score = None
+        record.product_market_fit_metric = None
         record.swot_strengths = None
         record.swot_weaknesses = None
         record.swot_opportunities = None
@@ -160,6 +165,11 @@ async def restart_startup_research(
     record.estimated_sam = None
     record.estimated_som = None
     record.market_sizing = None
+    record.market_score = None
+    record.market_metric = None
+    record.product_reality_check = None
+    record.product_market_fit_score = None
+    record.product_market_fit_metric = None
     record.swot_strengths = None
     record.swot_weaknesses = None
     record.swot_opportunities = None

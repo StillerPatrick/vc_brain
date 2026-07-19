@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   Radar,
   RadarChart,
@@ -22,7 +22,10 @@ import {
   Founder,
   HIGH_ODDS_COMBOS,
   IdeaAnalysis,
+  MarketAssessment,
   Memo,
+  OverallAssessment,
+  ProductFitAssessment,
   SizingRow,
   TEAM_BENCH,
   TrustLevel,
@@ -31,6 +34,175 @@ import {
 export const FOUNDER_COLORS = ["#2a78d6", "#008300", "#e87ba4"];
 
 const TRAIT_NAMES = ["Openness", "Conscientiousness", "Extraversion", "Agreeableness", "Stability"];
+
+/* ── overall investment score ─────────────────────────────── */
+
+export function OverallScorePanel({
+  assessment,
+}: {
+  assessment: OverallAssessment | null;
+}) {
+  const [showExplanation, setShowExplanation] = useState(false);
+
+  useEffect(() => {
+    if (!showExplanation) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowExplanation(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showExplanation]);
+
+  return (
+    <>
+      <section className="mb-6 overflow-hidden rounded-lg border border-navy/25 bg-card shadow-sm">
+        <div className="grid gap-0 lg:grid-cols-[260px_1fr]">
+          <div className="bg-navy px-5 py-5 text-white">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+              Overall investment score
+            </div>
+            <div className="mt-2 flex items-end gap-2">
+              <span className="font-mono text-5xl font-bold leading-none">
+                {assessment?.score ?? "–"}
+              </span>
+              <span className="pb-1 font-mono text-xs text-white/60">/ 100</span>
+            </div>
+            <div className="mt-3 text-sm font-semibold">
+              {assessment?.verdict ?? "Diligence in progress"}
+            </div>
+          </div>
+          <div className="p-5">
+            {assessment ? (
+              <>
+                <p className="text-sm leading-relaxed text-sub">{assessment.rationale}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {assessment.components.map((component) => (
+                    <div key={component.key} className="rounded-md bg-page px-3 py-2.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs font-semibold">{component.label}</span>
+                        <span className="font-mono text-xs font-bold">{component.contribution}</span>
+                      </div>
+                      <div className="mt-1 font-mono text-[9px] text-mut">
+                        {component.score}/100 × {Math.round(component.weight * 100)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowExplanation(true)}
+                  className="mt-3 text-xs font-semibold text-navy hover:underline"
+                >
+                  How is the overall score calculated? →
+                </button>
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed text-sub">
+                The overall score appears when the Team, Market, and Product–Market Fit analyses are complete.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+      {assessment && showExplanation && (
+        <OverallScoreExplanation
+          assessment={assessment}
+          onClose={() => setShowExplanation(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function OverallScoreExplanation({
+  assessment,
+  onClose,
+}: {
+  assessment: OverallAssessment;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-ink/25"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="overall-score-explanation-title"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-line bg-card p-6 shadow-xl">
+        <div className="flex items-start gap-4">
+          <div>
+            <div className="eyebrow">Overall score methodology</div>
+            <h2 id="overall-score-explanation-title" className="mt-1 text-2xl font-bold">
+              How we reached {assessment.score}/100
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-sub">
+              This weighted score summarizes the three independent diligence axes. Team receives a modest premium because execution quality affects whether the market and product opportunity can be captured.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy"
+            aria-label="Close overall score explanation"
+          >
+            Close
+          </button>
+        </div>
+
+        <section className="mt-7">
+          <div className="eyebrow">Formula</div>
+          <p className="mt-2 rounded-md bg-page p-3 font-mono text-xs leading-relaxed">
+            Team × 40% + Market × 30% + Product–Market Fit × 30%
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-sub">
+            The inputs remain separate 0–100 assessments. The weighted contributions are added and rounded to the nearest whole number; no LLM can adjust the final result.
+          </p>
+        </section>
+
+        <section className="mt-6">
+          <div className="eyebrow">This application</div>
+          <div className="mt-2 rounded-md border border-line px-4">
+            {assessment.components.map((component) => (
+              <div key={component.key} className="border-b border-line py-3 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-sm font-semibold">{component.label}</span>
+                  <span className="font-mono text-sm font-bold">+{component.contribution} pts</span>
+                </div>
+                <p className="mt-1 font-mono text-[10px] text-sub">
+                  {component.score}/100 × {Math.round(component.weight * 100)}% weight
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 rounded-md bg-page p-3 font-mono text-xs">
+            {assessment.components.map((item) => item.contribution).join(" + ")} = {assessment.score}/100
+          </p>
+        </section>
+
+        <section className="mt-6 rounded-md border border-line bg-page p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="eyebrow">Decision threshold</div>
+              <p className="mt-1 text-sm text-sub">
+                Investment review begins at {assessment.threshold}/100; 75+ is a strong candidate.
+              </p>
+            </div>
+            <span className={`text-right font-mono text-sm font-bold ${assessment.passesThreshold ? "text-good-text" : "text-critical"}`}>
+              {assessment.verdict.toUpperCase()}
+            </span>
+          </div>
+        </section>
+
+        <p className="mt-5 text-xs leading-relaxed text-mut">
+          This score supports screening; it does not replace investment-committee judgment, legal diligence, financial diligence, or direct customer reference checks.
+        </p>
+      </aside>
+    </div>
+  );
+}
 
 /* ── small vocabulary ─────────────────────────────────────── */
 
@@ -341,11 +513,120 @@ function usd(v: string) {
   return parseFloat(m[1]) * ({ B: 1e9, M: 1e6, K: 1e3 }[m[2].toUpperCase()] ?? 1);
 }
 
-export function MarketPanel({ axis, sizing }: { axis: Axis; sizing: SizingRow[] }) {
+function ExpandableMarketDetail({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const paragraphRef = useRef<HTMLParagraphElement>(null);
+  const detailId = useId();
+
+  useEffect(() => {
+    const paragraph = paragraphRef.current;
+    if (!paragraph) return;
+
+    const checkOverflow = () => {
+      const lineHeight = Number.parseFloat(window.getComputedStyle(paragraph).lineHeight);
+      setOverflows(paragraph.scrollHeight > lineHeight * 3 + 1);
+    };
+
+    checkOverflow();
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(paragraph);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <div className="mt-2">
+      <p
+        ref={paragraphRef}
+        id={detailId}
+        className={`${expanded ? "" : "line-clamp-3"} text-[10px] leading-relaxed text-sub`}
+      >
+        {text}
+      </p>
+      {overflows && (
+        <button
+          type="button"
+          className="mt-1 text-[10px] font-semibold text-navy hover:underline"
+          aria-controls={detailId}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "Show less" : "Read full text"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function MarketPanel({
+  axis,
+  sizing,
+  assessment,
+}: {
+  axis: Axis;
+  sizing: SizingRow[];
+  assessment: MarketAssessment | null;
+}) {
+  const [showExplanation, setShowExplanation] = useState(false);
+
+  useEffect(() => {
+    if (!showExplanation) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowExplanation(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showExplanation]);
+
   return (
     <>
       <div className="rounded-lg border border-line bg-card px-4">
         <AxisHeader axis={axis} />
+        {assessment && (
+          <div className="border-t border-line py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-[10px] uppercase text-mut">
+                €{assessment.investmentAmountEur.toLocaleString("en-US")} check
+              </span>
+              <span
+                className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
+                  assessment.worthInvesting
+                    ? "bg-good/10 text-good-text"
+                    : "bg-critical/10 text-critical"
+                }`}
+              >
+                {assessment.worthInvesting ? "INVEST" : "PASS"}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-sub">{assessment.rationale}</p>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+              {assessment.components.map((component) => (
+                <div key={component.key}>
+                  <div className="flex justify-between gap-2 font-mono text-[9px] text-mut">
+                    <span>{component.label}</span>
+                    <span>{component.score}/{component.maxScore}</span>
+                  </div>
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-line">
+                    <span
+                      className="block h-full rounded-full bg-navy"
+                      style={{ width: `${(component.score / component.maxScore) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 font-mono text-[9px] text-mut">
+              investment threshold {assessment.threshold}/100 · market sizes carry 80% of score
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowExplanation(true)}
+              className="mt-3 text-xs font-semibold text-navy hover:underline"
+            >
+              How is this score calculated? →
+            </button>
+          </div>
+        )}
       </div>
       <div className="mt-4 grid grid-cols-3 gap-4">
         {sizing.map((row) => {
@@ -366,11 +647,7 @@ export function MarketPanel({ axis, sizing }: { axis: Axis; sizing: SizingRow[] 
                 {known ? `${over ? "▼" : under ? "▲" : "≈"} ` : ""}
                 {row.computed}
               </div>
-              {row.detail && (
-                <p className="mt-2 line-clamp-3 text-[10px] leading-relaxed text-sub" title={row.detail}>
-                  {row.detail}
-                </p>
-              )}
+              {row.detail && <ExpandableMarketDetail text={row.detail} />}
             </div>
           );
         })}
@@ -378,7 +655,115 @@ export function MarketPanel({ axis, sizing }: { axis: Axis; sizing: SizingRow[] 
       <p className="mt-1.5 font-mono text-[9px] text-mut">
         deck above · our estimate below — ▼ deck overstates · ▲ deck conservative · ≈ within range
       </p>
+      {assessment && showExplanation && (
+        <MarketScoreExplanation
+          assessment={assessment}
+          onClose={() => setShowExplanation(false)}
+        />
+      )}
     </>
+  );
+}
+
+function MarketScoreExplanation({
+  assessment,
+  onClose,
+}: {
+  assessment: MarketAssessment;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-ink/25"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="market-score-explanation-title"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-line bg-card p-6 shadow-xl">
+        <div className="flex items-start gap-4">
+          <div>
+            <div className="eyebrow">Market score methodology</div>
+            <h2 id="market-score-explanation-title" className="mt-1 text-2xl font-bold">
+              How we reached {Math.round(assessment.components.reduce((total, item) => total + item.score, 0))}/100
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-sub">
+              The metric runs only after TAM, SAM, SOM, and agentic market research are complete.
+              It tests whether the market opportunity supports a €{assessment.investmentAmountEur.toLocaleString("en-US")} investment.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy"
+            aria-label="Close market score explanation"
+          >
+            Close
+          </button>
+        </div>
+
+        <section className="mt-7">
+          <div className="eyebrow">Formula</div>
+          <p className="mt-2 rounded-md bg-page p-3 font-mono text-xs leading-relaxed">
+            TAM (25) + SAM (25) + SOM (30) + evidence (8) + traction (7) + competition (5) = 100
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-sub">
+            Market size contributes 80 points. Estimates use a logarithmic scale so a tenfold increase matters consistently without allowing one very large number to dominate the result.
+          </p>
+        </section>
+
+        <section className="mt-6">
+          <div className="eyebrow">Market-size ranges</div>
+          <div className="mt-2 overflow-hidden rounded-md border border-line">
+            {[
+              ["TAM", "$10M", "$10B", "25"],
+              ["SAM", "$1M", "$1B", "25"],
+              ["SOM", "$100K", "$100M", "30"],
+            ].map(([metric, zero, full, points]) => (
+              <div key={metric} className="grid grid-cols-[48px_1fr_1fr_52px] gap-3 border-b border-line px-3 py-2.5 text-xs last:border-b-0">
+                <span className="font-semibold">{metric}</span>
+                <span className="text-sub">0 pts at {zero}</span>
+                <span className="text-sub">full at {full}</span>
+                <span className="text-right font-mono">/{points}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="eyebrow">This company</div>
+          <div className="mt-2 rounded-md border border-line px-4">
+            {assessment.components.map((component) => (
+              <div key={component.key} className="border-b border-line py-3 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-sm font-semibold">{component.label}</span>
+                  <span className="font-mono text-sm font-bold">
+                    {component.score} / {component.maxScore}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-sub">{component.explanation}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-md border border-line bg-page p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="eyebrow">Decision rule</div>
+              <p className="mt-1 text-sm text-sub">
+                Rounded total must reach {assessment.threshold}/100.
+              </p>
+            </div>
+            <span className={`font-mono text-lg font-bold ${assessment.worthInvesting ? "text-good-text" : "text-critical"}`}>
+              {assessment.worthInvesting ? "INVEST" : "PASS"}
+            </span>
+          </div>
+        </section>
+      </aside>
+    </div>
   );
 }
 
@@ -433,11 +818,54 @@ export function CompetitorsPanel({ competitors }: { competitors: Competitor[] })
 
 /* ── idea-vs-market panel: axis + innovation reality check ── */
 
-export function IdeaPanel({ axis, idea }: { axis: Axis; idea: IdeaAnalysis }) {
+export function IdeaPanel({
+  axis,
+  idea,
+  assessment,
+}: {
+  axis: Axis;
+  idea: IdeaAnalysis;
+  assessment: ProductFitAssessment | null;
+}) {
+  const [showExplanation, setShowExplanation] = useState(false);
+
+  useEffect(() => {
+    if (!showExplanation) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowExplanation(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showExplanation]);
+
   return (
     <>
       <div className="rounded-lg border border-line bg-card px-4">
         <AxisHeader axis={axis} />
+        {assessment && (
+          <div className="border-t border-line py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-[10px] uppercase text-mut">PMF evidence proxy</span>
+              <span
+                className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
+                  assessment.passesThreshold
+                    ? "bg-good/10 text-good-text"
+                    : "bg-critical/10 text-critical"
+                }`}
+              >
+                {assessment.verdict.toUpperCase()}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-sub">{assessment.rationale}</p>
+            <button
+              type="button"
+              onClick={() => setShowExplanation(true)}
+              className="mt-3 text-xs font-semibold text-navy hover:underline"
+            >
+              How is this score calculated? →
+            </button>
+          </div>
+        )}
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-line bg-card px-3 py-2.5">
@@ -449,7 +877,115 @@ export function IdeaPanel({ axis, idea }: { axis: Axis; idea: IdeaAnalysis }) {
           <p className="mt-1 text-[13px] leading-relaxed text-sub">{idea.realistic}</p>
         </div>
       </div>
+      {assessment && showExplanation && (
+        <ProductFitExplanation
+          assessment={assessment}
+          onClose={() => setShowExplanation(false)}
+        />
+      )}
     </>
+  );
+}
+
+function ProductFitExplanation({
+  assessment,
+  onClose,
+}: {
+  assessment: ProductFitAssessment;
+  onClose: () => void;
+}) {
+  const score = Math.round(
+    assessment.components.reduce((total, component) => total + component.score, 0),
+  );
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-ink/25"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="product-fit-explanation-title"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-line bg-card p-6 shadow-xl">
+        <div className="flex items-start gap-4">
+          <div>
+            <div className="eyebrow">Product–market fit methodology</div>
+            <h2 id="product-fit-explanation-title" className="mt-1 text-2xl font-bold">
+              How we reached {score}/100
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-sub">
+              This is a pre-investment evidence proxy. It combines observed customer pull with the agentic reality check, sourced SWOT, and competitive pressure; only actual retention and customer behavior can confirm PMF.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy"
+            aria-label="Close product-market fit explanation"
+          >
+            Close
+          </button>
+        </div>
+
+        <section className="mt-7">
+          <div className="eyebrow">Balanced formula</div>
+          <p className="mt-2 rounded-md bg-page p-3 font-mono text-xs leading-relaxed">
+            customer pull (40) + reality check (30) + SWOT balance (20) + competitive position (10) = 100
+          </p>
+          <div className="mt-3 space-y-2 text-xs leading-relaxed text-sub">
+            <p><strong className="text-ink">40% customer pull:</strong> verified retention, repeat usage, revenue, and adoption receive the most weight.</p>
+            <p><strong className="text-ink">30% reality check:</strong> problem urgency, differentiation, feasibility, and adoption friction are researched and scored.</p>
+            <p><strong className="text-ink">20% SWOT:</strong> sourced strengths and opportunities are balanced against weaknesses and threats by impact.</p>
+            <p><strong className="text-ink">10% competition:</strong> direct competitor threat reduces the available score.</p>
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="eyebrow">This company</div>
+          <div className="mt-2 rounded-md border border-line px-4">
+            {assessment.components.map((component) => (
+              <div key={component.key} className="border-b border-line py-3 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-sm font-semibold">{component.label}</span>
+                  <span className="font-mono text-sm font-bold">{component.score} / {component.maxScore}</span>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-sub">{component.explanation}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="eyebrow">Why these weights</div>
+          <div className="mt-2 space-y-2">
+            {assessment.methodologySources.map((source) => (
+              <a
+                key={source.url}
+                href={source.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-md border border-line px-3 py-2.5 text-xs font-medium hover:border-navy hover:text-navy"
+              >
+                {source.title} ↗
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-md border border-line bg-page p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="eyebrow">Screening threshold</div>
+              <p className="mt-1 text-sm text-sub">Promising evidence begins at {assessment.threshold}/100; strong evidence begins at 70.</p>
+            </div>
+            <span className={`text-right font-mono text-sm font-bold ${assessment.passesThreshold ? "text-good-text" : "text-critical"}`}>
+              {assessment.verdict.toUpperCase()}
+            </span>
+          </div>
+        </section>
+      </aside>
+    </div>
   );
 }
 

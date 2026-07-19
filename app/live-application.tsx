@@ -83,6 +83,7 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
   const hours =
     Math.round(((currentTime - new Date(live.created_at).getTime()) / 3_600_000) * 10) / 10;
   const metadata = live.metadata;
+  const overallScore = live.overall_score?.score ?? null;
   return {
     id: live.id,
     company: metadata?.company_name ?? live.company,
@@ -93,14 +94,30 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
     firstSignalAgoH: Math.max(0, hours),
     founders: live.founders.map((founder) => founderView(founder, live.status)),
     ensemble: live.team_categorization?.ensemble ?? "–",
+    overallAssessment: live.overall_score
+      ? {
+          score: live.overall_score.score,
+          threshold: live.overall_score.threshold,
+          verdict: live.overall_score.verdict,
+          passesThreshold: live.overall_score.passes_threshold,
+          rationale: live.overall_score.rationale,
+          components: live.overall_score.components.map((component) => ({
+            key: component.key,
+            label: component.label,
+            score: component.score,
+            weight: component.weight,
+            contribution: component.contribution,
+          })),
+        }
+      : null,
     axes: [
       {
         name: "Founder",
         score: live.team_categorization?.team_score ?? null,
         note: live.team_categorization?.team_score_rationale ?? null,
       },
-      { name: "Market", score: null },
-      { name: "Idea vs Market", score: null },
+      { name: "Market", score: metadata?.market_score ?? null },
+      { name: "Idea vs Market", score: metadata?.product_market_fit_score ?? null },
     ],
     teamNote: live.team_categorization?.team_score_rationale ?? null,
     sizing: [
@@ -123,13 +140,50 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
         detail: metadata?.market_sizing?.som.rationale,
       },
     ],
+    marketAssessment: metadata?.market_metric
+      ? {
+          investmentAmountEur: metadata.market_metric.investment_amount_eur,
+          threshold: metadata.market_metric.investment_threshold,
+          worthInvesting: metadata.market_metric.worth_investing,
+          rationale: metadata.market_metric.rationale,
+          components: metadata.market_metric.components.map((component) => ({
+            key: component.key,
+            label: component.label,
+            score: component.score,
+            maxScore: component.max_score,
+            explanation: component.explanation,
+          })),
+        }
+      : null,
     competitors: metadata?.competitors?.map((competitor) => ({
       name: competitor.name,
       angle: competitor.differentiation,
       threat: competitor.threat,
       url: competitor.website_url,
     })) ?? [],
-    idea: { innovation: "–", realistic: "–" },
+    productFitAssessment: metadata?.product_market_fit_metric
+      ? {
+          threshold: metadata.product_market_fit_metric.threshold,
+          verdict: metadata.product_market_fit_metric.verdict,
+          passesThreshold: metadata.product_market_fit_metric.passes_threshold,
+          rationale: metadata.product_market_fit_metric.rationale,
+          components: metadata.product_market_fit_metric.components.map((component) => ({
+            key: component.key,
+            label: component.label,
+            score: component.score,
+            maxScore: component.max_score,
+            explanation: component.explanation,
+          })),
+          methodologySources: metadata.product_market_fit_metric.methodology_sources.map((source) => ({
+            title: source.title,
+            url: source.url,
+          })),
+        }
+      : null,
+    idea: {
+      innovation: metadata?.product_reality_check?.innovation ?? "–",
+      realistic: metadata?.product_reality_check?.rationale ?? "–",
+    },
     claims: metadata?.traction_kpis?.map((kpi) => ({
       text: kpi.text,
       trust: kpi.trust,
@@ -139,8 +193,15 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
       confidence: kpi.confidence,
     })) ?? [],
     memo: {
-      score: null,
-      recommendation: null,
+      score: overallScore,
+      recommendation:
+        overallScore == null
+          ? null
+          : overallScore >= 75
+            ? "fund"
+            : overallScore >= 60
+              ? "observe"
+              : "pass",
       snapshot: metadata?.summary_sentences?.join(" ") ?? "–",
       hypotheses: metadata?.investment_hypotheses?.map((item) => ({
         text: item.text,

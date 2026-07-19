@@ -44,12 +44,52 @@ class ExtractedStartupMetadata(BaseModel):
 class SourcedInsight(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
     source_urls: list[HttpUrl] = Field(min_length=1, max_length=5)
+    impact: Literal["high", "medium", "low"] = "medium"
 
 
 class MarketEstimate(BaseModel):
     value_usd: float | None = Field(default=None, ge=0)
     rationale: str = Field(min_length=1, max_length=2000)
     source_urls: list[HttpUrl] = Field(default_factory=list, max_length=8)
+
+
+class MetricComponent(BaseModel):
+    key: str
+    label: str
+    score: float = Field(ge=0)
+    max_score: int = Field(gt=0)
+    explanation: str
+
+
+class MarketMetric(BaseModel):
+    score: int = Field(ge=0, le=100)
+    investment_amount_eur: int = Field(gt=0)
+    investment_threshold: int = Field(ge=0, le=100)
+    worth_investing: bool
+    rationale: str
+    components: list[MetricComponent]
+
+
+class MethodologySource(BaseModel):
+    title: str
+    url: HttpUrl
+
+
+class ProductRealityCheck(BaseModel):
+    innovation: str = Field(min_length=1, max_length=1000)
+    rationale: str = Field(min_length=1, max_length=1000)
+    score: int = Field(ge=0, le=100)
+    source_urls: list[HttpUrl] = Field(min_length=1, max_length=5)
+
+
+class ProductMarketFitMetric(BaseModel):
+    score: int = Field(ge=0, le=100)
+    threshold: int = Field(ge=0, le=100)
+    verdict: Literal["Strong fit evidence", "Promising, not proven", "Fit unproven"]
+    passes_threshold: bool
+    rationale: str
+    components: list[MetricComponent]
+    methodology_sources: list[MethodologySource]
 
 
 class ResearchedCompetitor(BaseModel):
@@ -85,6 +125,7 @@ class StartupResearchResult(BaseModel):
         min_length=2, max_length=3
     )
     traction_kpis: list[TractionKPI] = Field(default_factory=list, max_length=6)
+    reality_check: ProductRealityCheck
 
     @model_validator(mode="after")
     def require_sourced_market_estimates(self):
@@ -111,6 +152,8 @@ class StartupResearchResult(BaseModel):
             len(item.text.split()) > 30 for item in self.investment_hypotheses
         ):
             raise ValueError("Each investment hypothesis must be at most 30 words")
+        if len(self.reality_check.rationale.split()) > 40:
+            raise ValueError("Reality-check rationale must be at most 40 words")
         return self
 
 
@@ -152,6 +195,11 @@ class StartupMetadataResponse(BaseModel):
     estimated_sam: float | None
     estimated_som: float | None
     market_sizing: dict[str, MarketEstimate] | None
+    market_score: int | None
+    market_metric: MarketMetric | None
+    product_reality_check: ProductRealityCheck | None
+    product_market_fit_score: int | None
+    product_market_fit_metric: ProductMarketFitMetric | None
     swot_strengths: list[SourcedInsight] | None
     swot_weaknesses: list[SourcedInsight] | None
     swot_opportunities: list[SourcedInsight] | None
@@ -189,6 +237,11 @@ def startup_metadata_response(record: StartupMetadata) -> StartupMetadataRespons
         estimated_sam=record.estimated_sam,
         estimated_som=record.estimated_som,
         market_sizing=record.market_sizing,
+        market_score=record.market_score,
+        market_metric=record.market_metric,
+        product_reality_check=record.product_reality_check,
+        product_market_fit_score=record.product_market_fit_score,
+        product_market_fit_metric=record.product_market_fit_metric,
         swot_strengths=record.swot_strengths,
         swot_weaknesses=record.swot_weaknesses,
         swot_opportunities=record.swot_opportunities,

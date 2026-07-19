@@ -34,6 +34,7 @@ from app.schemas.applications import (
 from app.schemas.metadata import startup_metadata_response
 from app.services.application_workflow import FounderWorkItem, process_application
 from app.services.orchestrator import ScrapeTargets
+from app.services.overall_scoring import calculate_overall_score
 from app.services.startup_metadata import extract_and_store
 
 router = APIRouter()
@@ -321,6 +322,11 @@ async def rerun_application(
         metadata.estimated_sam = None
         metadata.estimated_som = None
         metadata.market_sizing = None
+        metadata.market_score = None
+        metadata.market_metric = None
+        metadata.product_reality_check = None
+        metadata.product_market_fit_score = None
+        metadata.product_market_fit_metric = None
         metadata.swot_strengths = None
         metadata.swot_weaknesses = None
         metadata.swot_opportunities = None
@@ -405,6 +411,19 @@ def _application_response(application: StartupApplication) -> StartupApplication
     metadata_response = (
         startup_metadata_response(startup_metadata) if startup_metadata else None
     )
+    team_score = (application.team_categorization or {}).get("team_score")
+    overall_score = None
+    if (
+        team_score is not None
+        and startup_metadata is not None
+        and startup_metadata.market_score is not None
+        and startup_metadata.product_market_fit_score is not None
+    ):
+        overall_score = calculate_overall_score(
+            team_score=int(team_score),
+            market_score=startup_metadata.market_score,
+            product_market_fit_score=startup_metadata.product_market_fit_score,
+        )
     return StartupApplicationResponse(
         id=application.id,
         company=application.company,
@@ -419,4 +438,5 @@ def _application_response(application: StartupApplication) -> StartupApplication
         completed_at=application.completed_at,
         metadata=metadata_response,
         founders=founders,
+        overall_score=overall_score,
     )

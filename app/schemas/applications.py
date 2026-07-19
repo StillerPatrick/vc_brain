@@ -10,6 +10,23 @@ from app.schemas.analysis import PersonalityAnalysisResponse
 from app.schemas.metadata import StartupMetadataResponse
 
 
+class OverallScoreComponent(BaseModel):
+    key: str
+    label: str
+    score: int = Field(ge=0, le=100)
+    weight: float = Field(gt=0, le=1)
+    contribution: float = Field(ge=0, le=100)
+
+
+class OverallScore(BaseModel):
+    score: int = Field(ge=0, le=100)
+    threshold: int = Field(ge=0, le=100)
+    verdict: str
+    passes_threshold: bool
+    rationale: str
+    components: list[OverallScoreComponent]
+
+
 class ApplicationFounderRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     role: str | None = Field(default=None, max_length=255)
@@ -93,6 +110,7 @@ class StartupApplicationResponse(BaseModel):
     completed_at: datetime | None
     metadata: StartupMetadataResponse | None
     founders: list[ApplicationFounderResponse]
+    overall_score: OverallScore | None
 
 
 def github_handle(value: str | None) -> str | None:

@@ -96,12 +96,47 @@ export type MetadataStatus = "processing" | "completed" | "failed";
 export interface SourcedInsight {
   text: string;
   source_urls: string[];
+  impact: "high" | "medium" | "low";
 }
 
 export interface MarketEstimate {
   value_usd: number | null;
   rationale: string;
   source_urls: string[];
+}
+
+export interface MarketMetricComponent {
+  key: string;
+  label: string;
+  score: number;
+  max_score: number;
+  explanation: string;
+}
+
+export interface MarketMetric {
+  score: number;
+  investment_amount_eur: number;
+  investment_threshold: number;
+  worth_investing: boolean;
+  rationale: string;
+  components: MarketMetricComponent[];
+}
+
+export interface ProductRealityCheck {
+  innovation: string;
+  rationale: string;
+  score: number;
+  source_urls: string[];
+}
+
+export interface ProductMarketFitMetric {
+  score: number;
+  threshold: number;
+  verdict: "Strong fit evidence" | "Promising, not proven" | "Fit unproven";
+  passes_threshold: boolean;
+  rationale: string;
+  components: MarketMetricComponent[];
+  methodology_sources: Array<{ title: string; url: string }>;
 }
 
 export interface StartupResearchSource {
@@ -148,6 +183,11 @@ export interface StartupMetadata {
   estimated_sam: number | null;
   estimated_som: number | null;
   market_sizing: Record<"tam" | "sam" | "som", MarketEstimate> | null;
+  market_score: number | null;
+  market_metric: MarketMetric | null;
+  product_reality_check: ProductRealityCheck | null;
+  product_market_fit_score: number | null;
+  product_market_fit_metric: ProductMarketFitMetric | null;
   swot_strengths: SourcedInsight[] | null;
   swot_weaknesses: SourcedInsight[] | null;
   swot_opportunities: SourcedInsight[] | null;
@@ -185,6 +225,20 @@ export interface StartupApplication {
   completed_at: string | null;
   metadata: StartupMetadata | null;
   founders: ApplicationFounder[];
+  overall_score: {
+    score: number;
+    threshold: number;
+    verdict: string;
+    passes_threshold: boolean;
+    rationale: string;
+    components: Array<{
+      key: string;
+      label: string;
+      score: number;
+      weight: number;
+      contribution: number;
+    }>;
+  } | null;
 }
 
 export interface ApplicationSubmission {

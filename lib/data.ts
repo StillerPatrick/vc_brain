@@ -46,6 +46,50 @@ export interface SizingRow {
   detail?: string;
 }
 
+export interface MarketAssessment {
+  investmentAmountEur: number;
+  threshold: number;
+  worthInvesting: boolean;
+  rationale: string;
+  components: Array<{
+    key: string;
+    label: string;
+    score: number;
+    maxScore: number;
+    explanation: string;
+  }>;
+}
+
+export interface ProductFitAssessment {
+  threshold: number;
+  verdict: string;
+  passesThreshold: boolean;
+  rationale: string;
+  components: Array<{
+    key: string;
+    label: string;
+    score: number;
+    maxScore: number;
+    explanation: string;
+  }>;
+  methodologySources: Array<{ title: string; url: string }>;
+}
+
+export interface OverallAssessment {
+  score: number;
+  threshold: number;
+  verdict: string;
+  passesThreshold: boolean;
+  rationale: string;
+  components: Array<{
+    key: string;
+    label: string;
+    score: number;
+    weight: number;
+    contribution: number;
+  }>;
+}
+
 /** Named competitors (memo: how each differs, who becomes a threat). Max 3 shown. */
 export interface Competitor {
   name: string;
@@ -86,8 +130,11 @@ export interface Application {
   ensemble: string;
   /** One-sentence rationale behind the hybrid team score. */
   teamNote?: string | null;
+  overallAssessment: OverallAssessment | null;
   axes: Axis[];
   sizing: SizingRow[];
+  marketAssessment: MarketAssessment | null;
+  productFitAssessment: ProductFitAssessment | null;
   competitors: Competitor[];
   idea: IdeaAnalysis;
   claims: Claim[];

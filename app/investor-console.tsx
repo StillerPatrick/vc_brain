@@ -22,6 +22,7 @@ import {
   IdeaPanel,
   MarketPanel,
   MemoPanel,
+  OverallScorePanel,
   TeamPanel,
 } from "./ui";
 
@@ -409,6 +410,7 @@ export function InvestorConsole({
         <main className="min-w-0 flex-1 overflow-y-auto">
           {app && live ? (
             <div className="mx-auto max-w-[1400px] px-6 py-6">
+              <OverallScorePanel assessment={app.overallAssessment} />
               {/* header */}
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -508,7 +510,11 @@ export function InvestorConsole({
                 {/* right: market + idea-vs-market */}
                 <section className="min-w-0 xl:border-l xl:border-line xl:pl-8">
                   <div className="eyebrow mb-2">Market</div>
-                  <MarketPanel axis={app.axes.find((a) => a.name === "Market")!} sizing={app.sizing} />
+                  <MarketPanel
+                    axis={app.axes.find((a) => a.name === "Market")!}
+                    sizing={app.sizing}
+                    assessment={app.marketAssessment}
+                  />
                   <div className="mt-4">
                     <div className="eyebrow mb-2">Top 3 competitors</div>
                     <CompetitorsPanel competitors={app.competitors} />
@@ -516,7 +522,11 @@ export function InvestorConsole({
                   <ResearchSourcesPanel live={live} />
 
                   <div className="eyebrow mb-2 mt-5">Idea vs market</div>
-                  <IdeaPanel axis={app.axes.find((a) => a.name === "Idea vs Market")!} idea={app.idea} />
+                  <IdeaPanel
+                    axis={app.axes.find((a) => a.name === "Idea vs Market")!}
+                    idea={app.idea}
+                    assessment={app.productFitAssessment}
+                  />
                 </section>
               </div>
 

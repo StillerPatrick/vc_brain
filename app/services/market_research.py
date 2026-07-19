@@ -13,7 +13,7 @@ from app.schemas.metadata import StartupResearchResult
 from app.services.exceptions import IntegrationError
 
 
-RESEARCH_PROMPT_VERSION = "startup-market-research-v3"
+RESEARCH_PROMPT_VERSION = "startup-market-research-v4"
 RESEARCH_INSTRUCTIONS = """
 You are a skeptical venture-capital market research agent. Research the supplied
 startup using the available Tavily web_search and fetch_website tools, then call
@@ -37,7 +37,12 @@ Rules:
 - For each market-size rationale, use one sentence of at most 35 words containing only
   the calculation and its decisive assumption.
 - Return 1-2 items per SWOT quadrant. Each item must be one specific sentence of at
-  most 25 words. Avoid generic consulting language.
+  most 25 words. Avoid generic consulting language. Rate each item's decision impact
+  as high, medium, or low.
+- Produce a sourced product reality check. State the core innovation plainly, then
+  score it from 0-100 using problem urgency (30%), meaningful differentiation (30%),
+  technical/commercial feasibility (20%), and adoption friction (20%). The rationale
+  must be one sentence of at most 40 words. Missing evidence lowers the score.
 - Return the top three direct or meaningful indirect competitors. Describe each
   difference in one sentence of at most 25 words and assess its threat.
 - Produce 2-3 falsifiable investment hypotheses. Each must be one sentence of at most
@@ -46,7 +51,7 @@ Rules:
   downloads, partnerships, growth, or product adoption. Return an empty traction list
   when no public KPI survives verification; do not convert absence of evidence into a
   KPI claim.
-- Every SWOT item, market estimate, competitor, hypothesis, and traction/KPI item must
+- Every SWOT item, market estimate, reality check, competitor, hypothesis, and traction/KPI item must
   cite one or more exact URLs returned by the tools. Use only sources that materially
   support the result.
 - Keep SWOT statements factual and specific. Weaknesses are internal limitations;
@@ -367,6 +372,8 @@ def _crucial_sources(
     for competitor in result.competitors:
         for url in competitor.source_urls:
             supports.setdefault(_canonical_url(str(url)), set()).add("Competitor")
+    for url in result.reality_check.source_urls:
+        supports.setdefault(_canonical_url(str(url)), set()).add("Reality check")
     for hypothesis in result.investment_hypotheses:
         for url in hypothesis.source_urls:
             supports.setdefault(_canonical_url(str(url)), set()).add("Hypothesis")
