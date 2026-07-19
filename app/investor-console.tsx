@@ -131,27 +131,34 @@ function DeckPanel({ live }: { live: StartupApplication }) {
         <div className="grid gap-4 sm:grid-cols-[minmax(160px,1fr)_2fr]">
           <div>
             {meta.first_slide_available ? (
-              // Served by the authenticated backend asset endpoint.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={metadataAssetUrl(live.id, "first-slide")}
-                alt={`First slide of ${meta.deck_filename}`}
-                className="aspect-video w-full rounded-md border border-line bg-page object-contain"
-              />
+              meta.deck_available ? (
+                <a
+                  href={metadataAssetUrl(live.id, "deck")}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${meta.deck_filename}`}
+                  className="group block rounded-md focus:outline-none focus:ring-2 focus:ring-navy/40"
+                >
+                  {/* Served by the authenticated backend asset endpoint. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={metadataAssetUrl(live.id, "first-slide")}
+                    alt={`First slide of ${meta.deck_filename}`}
+                    className="aspect-video w-full rounded-md border border-line bg-page object-contain transition group-hover:border-navy/50 group-hover:opacity-90"
+                  />
+                </a>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={metadataAssetUrl(live.id, "first-slide")}
+                  alt={`First slide of ${meta.deck_filename}`}
+                  className="aspect-video w-full rounded-md border border-line bg-page object-contain"
+                />
+              )
             ) : (
               <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-line bg-page px-4 text-center font-mono text-xs text-mut">
                 {meta.status === "processing" ? "Generating preview…" : "Preview unavailable"}
               </div>
-            )}
-            {meta.deck_available && (
-              <a
-                href={metadataAssetUrl(live.id, "deck")}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-block text-xs font-semibold text-navy hover:underline"
-              >
-                Open {meta.deck_filename} ↗
-              </a>
             )}
           </div>
           <div>
