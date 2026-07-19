@@ -70,7 +70,11 @@ function FounderRadar({ founder, color }: { founder: Founder; color: string }) {
   return (
     <div className="-mx-2 mt-1 h-[170px]">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} margin={{ top: 8, right: 24, bottom: 4, left: 24 }}>
+        <RadarChart
+          data={data}
+          margin={{ top: 8, right: 24, bottom: 4, left: 24 }}
+          accessibilityLayer={false}
+        >
           <PolarGrid stroke="#e1e0d9" />
           <PolarAngleAxis
             dataKey="axis"
@@ -93,9 +97,32 @@ function FounderRadar({ founder, color }: { founder: Founder; color: string }) {
   );
 }
 
-export function FounderCard({ founder, color }: { founder: Founder; color: string }) {
+export function FounderCard({
+  founder,
+  color,
+  onOpen,
+}: {
+  founder: Founder;
+  color: string;
+  onOpen?: () => void;
+}) {
   return (
-    <div className="rounded-lg border border-line bg-card p-4">
+    <div
+      className={`rounded-lg border border-line bg-card p-4 ${
+        onOpen ? "cursor-pointer transition-colors hover:border-navy/60" : ""
+      }`}
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={
+        onOpen
+          ? (event) => {
+              if (event.key === "Enter") onOpen();
+            }
+          : undefined
+      }
+      aria-label={onOpen ? `Open founder deep dive for ${founder.name}` : undefined}
+    >
       <div className="flex items-baseline justify-between gap-2">
         <div>
           <div className="text-[15px] font-semibold leading-tight">{founder.name}</div>
@@ -126,6 +153,7 @@ export function FounderCard({ founder, color }: { founder: Founder; color: strin
               href={href}
               target="_blank"
               rel="noreferrer"
+              onClick={(event) => event.stopPropagation()}
               className={`${classes} hover:border-navy hover:text-navy`}
               aria-label={`Open ${source} profile for ${founder.name}`}
             >

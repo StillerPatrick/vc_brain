@@ -25,6 +25,25 @@ export interface PersonalityAnalysis {
   created_at: string;
 }
 
+export interface FounderExperienceEntry {
+  position: string | null;
+  company: string | null;
+  employment_type: string | null;
+  location: string | null;
+  start: string | null;
+  end: string | null;
+  duration: string | null;
+  description: string | null;
+}
+
+export interface FounderEducationEntry {
+  school: string | null;
+  degree: string | null;
+  field: string | null;
+  period: string | null;
+  grade: string | null;
+}
+
 export interface ApplicationFounder {
   user_id: string;
   name: string;
@@ -37,6 +56,20 @@ export interface ApplicationFounder {
   job_status: JobStatus | null;
   job_error: string | null;
   analysis: PersonalityAnalysis | null;
+  headline: string | null;
+  location_text: string | null;
+  country_code: string | null;
+  current_position: string | null;
+  current_company: string | null;
+  years_experience: number | null;
+  highest_degree: string | null;
+  field_of_study: string | null;
+  experience: FounderExperienceEntry[] | null;
+  education: FounderEducationEntry[] | null;
+  skills: string[] | null;
+  connections_count: number | null;
+  follower_count: number | null;
+  cv_scraped_at: string | null;
 }
 
 export interface TeamCategorization {

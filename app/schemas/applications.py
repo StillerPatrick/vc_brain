@@ -59,6 +59,21 @@ class ApplicationFounderResponse(BaseModel):
     job_status: JobStatus | None
     job_error: str | None
     analysis: PersonalityAnalysisResponse | None
+    # CV fields derived from the LinkedIn profile scrape (users table)
+    headline: str | None = None
+    location_text: str | None = None
+    country_code: str | None = None
+    current_position: str | None = None
+    current_company: str | None = None
+    years_experience: float | None = None
+    highest_degree: str | None = None
+    field_of_study: str | None = None
+    experience: list[Any] | None = None
+    education: list[Any] | None = None
+    skills: list[Any] | None = None
+    connections_count: int | None = None
+    follower_count: int | None = None
+    cv_scraped_at: datetime | None = None
 
 
 class StartupApplicationResponse(BaseModel):

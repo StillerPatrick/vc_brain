@@ -12,7 +12,7 @@ import {
   StartupResearchSource,
 } from "@/lib/api";
 import { BIG5_KEY, Decision } from "@/lib/data";
-import { toApplicationView } from "./live-application";
+import { FounderDeepDive, toApplicationView } from "./live-application";
 import {
   AxisHeader,
   CompetitorsPanel,
@@ -272,11 +272,23 @@ export function InvestorConsole({
     useState<StartupApplication[]>(initialApplications);
   const [backendError, setBackendError] = useState<string | null>(initialBackendError);
   const [decisions, setDecisions] = useState<Record<string, Decision | undefined>>({});
+  const [deepDiveUserId, setDeepDiveUserId] = useState<string | null>(null);
 
   const live =
     applications.find((application) => application.id === selectedId) ?? applications[0];
   const app = live ? toApplicationView(live, initialTime) : null;
   const decided = Object.values(decisions).filter(Boolean).length;
+  const deepDiveFounder =
+    live?.founders.find((founder) => founder.user_id === deepDiveUserId) ?? null;
+
+  useEffect(() => {
+    if (!deepDiveUserId) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDeepDiveUserId(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [deepDiveUserId]);
 
   const handleRerun = async () => {
     if (!live) return;
@@ -453,7 +465,12 @@ export function InvestorConsole({
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     {app.founders.map((f, i) => (
-                      <FounderCard key={f.name} founder={f} color={FOUNDER_COLORS[i]} />
+                      <FounderCard
+                        key={f.name}
+                        founder={f}
+                        color={FOUNDER_COLORS[i]}
+                        onOpen={() => setDeepDiveUserId(live.founders[i]?.user_id ?? null)}
+                      />
                     ))}
                   </div>
                   <div className="mt-2 font-mono text-[10px] leading-relaxed text-mut">
@@ -511,6 +528,12 @@ export function InvestorConsole({
           app={app}
           decision={decisions[app.id]}
           onDecide={(d) => setDecisions((prev) => ({ ...prev, [app.id]: d }))}
+        />
+      )}
+      {deepDiveFounder && (
+        <FounderDeepDive
+          founder={deepDiveFounder}
+          onClose={() => setDeepDiveUserId(null)}
         />
       )}
     </div>

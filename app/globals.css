@@ -90,3 +90,9 @@ html {
   .landing-float,
   .landing-orb { animation: none; }
 }
+
+/* Recharts marks chart groups with tabindex=-1; clicking one paints the
+   browser's default focus ring around the plot. Suppress it. */
+.recharts-wrapper *:focus {
+  outline: none;
+}

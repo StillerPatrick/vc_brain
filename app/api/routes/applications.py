@@ -382,6 +382,20 @@ def _application_response(application: StartupApplication) -> StartupApplication
             job_status=founder.scrape_job.status if founder.scrape_job else None,
             job_error=founder.scrape_job.error if founder.scrape_job else None,
             analysis=founder.personality_analysis,
+            headline=founder.user.headline,
+            location_text=founder.user.location_text,
+            country_code=founder.user.country_code,
+            current_position=founder.user.current_position,
+            current_company=founder.user.current_company,
+            years_experience=founder.user.years_experience,
+            highest_degree=founder.user.highest_degree,
+            field_of_study=founder.user.field_of_study,
+            experience=founder.user.experience,
+            education=founder.user.education,
+            skills=founder.user.skills,
+            connections_count=founder.user.connections_count,
+            follower_count=founder.user.follower_count,
+            cv_scraped_at=founder.user.cv_scraped_at,
         )
         for founder in application.founders
     ]
