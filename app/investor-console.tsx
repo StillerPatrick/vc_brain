@@ -27,6 +27,14 @@ import {
   TeamPanel,
 } from "./ui";
 
+/** Graded score color: strong green, weak red, midfield navy. */
+function scoreColor(score: number | null): string {
+  if (score == null) return "text-mut";
+  if (score >= 70) return "text-good-text";
+  if (score <= 30) return "text-critical";
+  return "text-navy";
+}
+
 interface InvestorConsoleProps {
   initialApplications: StartupApplication[];
   initialBackendError: string | null;
@@ -321,20 +329,22 @@ export function InvestorConsole({
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-sm font-semibold">{application.company}</span>
                   <span
-                    className={`shrink-0 font-mono text-sm font-bold ${
-                      application.overall_score
-                        ? application.overall_score.passes_threshold
-                          ? "text-good-text"
-                          : "text-critical"
-                        : "text-mut"
-                    }`}
+                    className={`shrink-0 font-mono text-sm font-bold ${scoreColor(
+                      application.overall_score?.score ??
+                        application.team_categorization?.team_score ??
+                        null,
+                    )}`}
                     title={
                       application.overall_score
                         ? `Overall investment score: ${application.overall_score.score}/100 · ${application.overall_score.verdict}`
-                        : "Overall score pending"
+                        : application.team_categorization?.team_score != null
+                          ? `Founder score: ${application.team_categorization.team_score}/100 — overall score pending`
+                          : "Overall score pending"
                     }
                   >
-                    {application.overall_score?.score ?? "–"}
+                    {application.overall_score?.score ??
+                      application.team_categorization?.team_score ??
+                      "–"}
                   </span>
                 </div>
                 <div className="mt-0.5 truncate text-[11px] text-sub">
