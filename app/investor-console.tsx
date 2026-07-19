@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { BIG5_KEY, Decision } from "@/lib/data";
 import { FounderDeepDive, toApplicationView } from "./live-application";
+import { Logo } from "./logo";
 import {
   CompetitorsPanel,
   DecisionRail,
@@ -286,9 +287,8 @@ export function InvestorConsole({
     <div className="flex h-screen flex-col">
       {/* ── top bar ── */}
       <header className="flex items-center gap-4 border-b border-line bg-card px-6 py-3">
-        <div className="flex items-baseline gap-2">
-          <span className="inline-block size-2.5 rounded-[3px] bg-navy" aria-hidden />
-          <span className="text-[15px] font-extrabold tracking-tight">VC BRAIN</span>
+        <div className="flex items-center gap-2">
+          <Logo />
           <span className="eyebrow hidden md:inline">Investor console</span>
         </div>
         <span className="ml-auto font-mono text-[11px] text-mut">
@@ -304,13 +304,11 @@ export function InvestorConsole({
 
       <div className="flex min-h-0 flex-1">
         {/* ── queue ── */}
-        <aside className="w-[248px] shrink-0 overflow-y-auto border-r border-line">
+        <aside className="w-[288px] shrink-0 overflow-y-auto border-r border-line">
           <div className="eyebrow px-4 pb-1 pt-4">Pipeline</div>
           {applications.map((application) => {
             const d = decisions[application.id];
             const active = application.id === (live?.id ?? null);
-            const hours =
-              (initialTime - new Date(application.created_at).getTime()) / 3_600_000;
             return (
               <button
                 key={application.id}
@@ -320,21 +318,43 @@ export function InvestorConsole({
                 }`}
                 style={active ? { boxShadow: "inset 3px 0 0 var(--navy)" } : undefined}
               >
-                <div className="truncate text-sm font-semibold">{application.company}</div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-semibold">{application.company}</span>
+                  <span
+                    className={`shrink-0 font-mono text-sm font-bold ${
+                      application.overall_score
+                        ? application.overall_score.passes_threshold
+                          ? "text-good-text"
+                          : "text-critical"
+                        : "text-mut"
+                    }`}
+                    title={
+                      application.overall_score
+                        ? `Overall investment score: ${application.overall_score.score}/100 · ${application.overall_score.verdict}`
+                        : "Overall score pending"
+                    }
+                  >
+                    {application.overall_score?.score ?? "–"}
+                  </span>
+                </div>
                 <div className="mt-0.5 truncate text-[11px] text-sub">
                   {application.sector ?? "Unspecified"} · {application.location ?? "Unknown"}
                 </div>
-                <div className="mt-1 font-mono text-[10px]">
-                  {d === "fund" ? (
-                    <span className="text-good-text">✓ FUNDED</span>
-                  ) : d === "observe" ? (
-                    <span className="text-[#8a5f00]">◷ OBSERVING</span>
-                  ) : d === "pass" ? (
-                    <span className="text-critical">✕ PASSED</span>
-                  ) : application.status === "processing" ? (
+                <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px]">
+                  {application.status === "processing" && (
                     <span className="text-navy">◷ LIVE DILIGENCE</span>
+                  )}
+                  <span className="ml-auto" />
+                  {d === "fund" ? (
+                    <span className="font-semibold text-good-text">✓ FUNDED</span>
+                  ) : d === "observe" ? (
+                    <span className="font-semibold text-[#8a5f00]">◷ OBSERVING</span>
+                  ) : d === "pass" ? (
+                    <span className="font-semibold text-critical">✕ PASSED</span>
                   ) : (
-                    <span className="text-mut">⧗ {Math.max(0, hours).toFixed(1)}h in diligence</span>
+                    <span className="rounded-sm border border-line px-1.5 py-px font-semibold text-sub">
+                      OPEN
+                    </span>
                   )}
                 </div>
               </button>

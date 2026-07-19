@@ -14,9 +14,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VC Brain — $100K for your idea, decided in 24 hours",
+  title: "Oceana — $100K for your idea, decided in 24 hours",
   description:
-    "Apply with your deck and your team. VC Brain screens the work you've actually done — code, track record, market — and returns a $100K decision within 24 hours.",
+    "Apply with your deck and your team. Oceana screens the work you've actually done — code, track record, market — and returns a $100K decision within 24 hours.",
 };
 
 export default function RootLayout({

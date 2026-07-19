@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { submitApplication, uploadPitchDeck } from "@/lib/api";
+import { Logo } from "../logo";
 
 interface Member {
   name: string;
@@ -102,9 +103,8 @@ export default function Apply() {
   return (
     <div className="min-h-screen">
       <header className="flex items-center gap-4 border-b border-line bg-card px-6 py-3">
-        <div className="flex items-baseline gap-2">
-          <span className="inline-block size-2.5 rounded-[3px] bg-navy" aria-hidden />
-          <span className="text-[15px] font-extrabold tracking-tight">VC BRAIN</span>
+        <div className="flex items-center gap-2">
+          <Logo />
           <span className="eyebrow hidden md:inline">Application</span>
         </div>
         <Link

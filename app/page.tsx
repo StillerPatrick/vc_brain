@@ -1,13 +1,5 @@
 import Link from "next/link";
-
-function Logo() {
-  return (
-    <span className="flex items-baseline gap-2">
-      <span className="inline-block size-2.5 rounded-[3px] bg-navy" aria-hidden />
-      <span className="text-[15px] font-extrabold tracking-tight">VC BRAIN</span>
-    </span>
-  );
-}
+import { Logo } from "./logo";
 
 const STEPS = [
   {
@@ -55,7 +47,7 @@ export default function Home() {
     <main className="min-h-screen">
       {/* ── header ── */}
       <header className="flex items-center gap-4 border-b border-line bg-card px-6 py-3">
-        <Link href="/" aria-label="VC Brain home">
+        <Link href="/" aria-label="Oceana home">
           <Logo />
         </Link>
         <span className="eyebrow hidden md:inline">$100K checks · 24 hours</span>
@@ -76,7 +68,27 @@ export default function Home() {
       </header>
 
       {/* ── hero ── */}
-      <section className="mx-auto max-w-[880px] px-6 pb-16 pt-20 text-center sm:pt-28">
+      <section className="relative overflow-hidden">
+        {/* drifting ocean-toned orbs behind the hero */}
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <div
+            className="landing-orb absolute -left-32 -top-24 size-[480px] rounded-full opacity-60 blur-[110px]"
+            style={{ background: "#a5cbea" }}
+          />
+          <div
+            className="landing-orb absolute -right-40 top-16 size-[520px] rounded-full opacity-40 blur-[120px]"
+            style={{ background: "#2a78d6", animationDuration: "17s", animationDirection: "reverse" }}
+          />
+          <div
+            className="landing-orb absolute -bottom-48 left-1/3 size-[420px] rounded-full opacity-30 blur-[110px]"
+            style={{ background: "#7fd4c1", animationDuration: "22s" }}
+          />
+          <div
+            className="landing-orb absolute bottom-0 right-1/4 size-64 rounded-full opacity-20 blur-[90px]"
+            style={{ background: "#ff7f63", animationDuration: "14s", animationDirection: "reverse" }}
+          />
+        </div>
+        <div className="relative mx-auto max-w-[880px] px-6 pb-16 pt-20 text-center sm:pt-28">
         <div className="eyebrow">Applications open · decisions within 24 hours</div>
         <h1 className="mt-4 text-balance text-[clamp(2.6rem,7vw,4.5rem)] font-bold leading-[1.02] tracking-tight">
           $100K for your idea.
@@ -102,7 +114,8 @@ export default function Home() {
         </div>
         <p className="mt-4 font-mono text-[10px] text-mut">
           Minimum application: pitch deck + founders.
-        </p>
+          </p>
+        </div>
       </section>
 
       {/* ── the 24 hours ── */}
