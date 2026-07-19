@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* ── VC Brain tokens ─────────────────────────────────────────
+   Chrome + chart palette from a CVD-validated reference set.
+   Light "diligence dossier" look — deliberately no dark mode. */
+:root {
+  --page: #f9f9f7;
+  --card: #fcfcfb;
+  --ink: #0b0b0b;
+  --sub: #52514e;
+  --mut: #898781;
+  --line: #e1e0d9;
+  --ring: rgba(11, 11, 11, 0.1);
+  --navy: #0d366b;
+  --blue: #2a78d6;
+  --green: #008300;
+  --magenta: #e87ba4;
+  --good: #0ca30c;
+  --good-text: #006300;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-sub: var(--sub);
+  --color-mut: var(--mut);
+  --color-line: var(--line);
+  --color-navy: var(--navy);
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-magenta: var(--magenta);
+  --color-good: var(--good);
+  --color-good-text: var(--good-text);
+  --color-warn: var(--warn);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-archivo), system-ui, sans-serif;
+}
+
+/* Section eyebrow — mono, tracked-out caps. The dossier vernacular. */
+.eyebrow {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+::selection {
+  background: var(--navy);
+  color: #fff;
+}
