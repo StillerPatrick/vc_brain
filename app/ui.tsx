@@ -20,6 +20,7 @@ import {
   Competitor,
   Decision,
   Founder,
+  FounderAssessment,
   HIGH_ODDS_COMBOS,
   IdeaAnalysis,
   MarketAssessment,
@@ -32,6 +33,27 @@ import {
 } from "@/lib/data";
 
 export const FOUNDER_COLORS = ["#2a78d6", "#008300", "#e87ba4"];
+
+/** Small external-link marker — replaces the "↗" text glyph. */
+export function ExternalIcon() {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="inline-block shrink-0 opacity-60"
+      aria-hidden
+    >
+      <path d="M7 17L17 7" />
+      <path d="M9 7h8v8" />
+    </svg>
+  );
+}
 
 const TRAIT_NAMES = ["Openness", "Conscientiousness", "Extraversion", "Agreeableness", "Stability"];
 
@@ -53,53 +75,80 @@ export function OverallScorePanel({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [showExplanation]);
 
+  const components: Array<{
+    key: string;
+    label: string;
+    weight: number;
+    score: number | null;
+    contribution: number | null;
+  }> = assessment?.components ?? [
+    { key: "team", label: "Team", weight: 0.4, score: null, contribution: null },
+    { key: "market", label: "Market", weight: 0.3, score: null, contribution: null },
+    {
+      key: "product_market_fit",
+      label: "Product–Market Fit",
+      weight: 0.3,
+      score: null,
+      contribution: null,
+    },
+  ];
+
   return (
     <>
-      <section className="mb-6 overflow-hidden rounded-lg border border-navy/25 bg-card shadow-sm">
-        <div className="grid gap-0 lg:grid-cols-[260px_1fr]">
-          <div className="bg-navy px-5 py-5 text-white">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
-              Overall investment score
-            </div>
+      <section className="mt-6 rounded-lg border border-line bg-card">
+        <div className="grid lg:grid-cols-[240px_1fr]">
+          <div className="border-b border-line p-5 lg:border-b-0 lg:border-r">
+            <div className="eyebrow">Overall investment score</div>
             <div className="mt-2 flex items-end gap-2">
-              <span className="font-mono text-5xl font-bold leading-none">
+              <span
+                className={`font-mono text-5xl font-bold leading-none ${
+                  assessment ? "text-navy" : "text-mut"
+                }`}
+              >
                 {assessment?.score ?? "–"}
               </span>
-              <span className="pb-1 font-mono text-xs text-white/60">/ 100</span>
+              <span className="pb-1 font-mono text-xs text-mut">/ 100</span>
             </div>
-            <div className="mt-3 text-sm font-semibold">
-              {assessment?.verdict ?? "Diligence in progress"}
+            <div
+              className={`mt-3 text-sm font-semibold ${
+                assessment
+                  ? assessment.passesThreshold
+                    ? "text-good-text"
+                    : "text-critical"
+                  : "text-mut"
+              }`}
+            >
+              {assessment?.verdict ?? "Pending"}
             </div>
           </div>
           <div className="p-5">
-            {assessment ? (
-              <>
-                <p className="text-sm leading-relaxed text-sub">{assessment.rationale}</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  {assessment.components.map((component) => (
-                    <div key={component.key} className="rounded-md bg-page px-3 py-2.5">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-xs font-semibold">{component.label}</span>
-                        <span className="font-mono text-xs font-bold">{component.contribution}</span>
-                      </div>
-                      <div className="mt-1 font-mono text-[9px] text-mut">
-                        {component.score}/100 × {Math.round(component.weight * 100)}%
-                      </div>
-                    </div>
-                  ))}
+            <p className="text-sm leading-relaxed text-sub">
+              {assessment?.rationale ??
+                "Combines the Team, Market, and Product–Market Fit scores as their analyses complete."}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {components.map((component) => (
+                <div key={component.key} className="rounded-md bg-page px-3 py-2.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold">{component.label}</span>
+                    <span className="font-mono text-xs font-bold">
+                      {component.contribution ?? "–"}
+                    </span>
+                  </div>
+                  <div className="mt-1 font-mono text-[9px] text-mut">
+                    {component.score ?? "–"}/100 × {Math.round(component.weight * 100)}%
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowExplanation(true)}
-                  className="mt-3 text-xs font-semibold text-navy hover:underline"
-                >
-                  How is the overall score calculated? →
-                </button>
-              </>
-            ) : (
-              <p className="text-sm leading-relaxed text-sub">
-                The overall score appears when the Team, Market, and Product–Market Fit analyses are complete.
-              </p>
+              ))}
+            </div>
+            {assessment && (
+              <button
+                type="button"
+                onClick={() => setShowExplanation(true)}
+                className="mt-3 text-xs font-semibold text-navy hover:underline"
+              >
+                How is the overall score calculated?
+              </button>
             )}
           </div>
         </div>
@@ -380,15 +429,7 @@ function fmtRoles(roles: string[]) {
   return [...counts].map(([r, n]) => (n > 1 ? `${r} ×${n}` : r)).join(" + ");
 }
 
-export function TeamPanel({
-  ensemble,
-  founders,
-  note,
-}: {
-  ensemble: string;
-  founders: Founder[];
-  note?: string | null;
-}) {
+export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: Founder[] }) {
   const analyzed = founders.filter((f) => f.big5.some((v) => v > 0));
   const team = analyzed.map((f) => f.archetype);
   const evaluated = HIGH_ODDS_COMBOS.map((c) => ({ ...c, missing: comboMissing(team, c.roles) }));
@@ -472,9 +513,6 @@ export function TeamPanel({
           </p>
         </div>
       </div>
-      {note && (
-        <p className="mt-3 border-t border-line pt-2 text-xs leading-relaxed text-sub">{note}</p>
-      )}
       <p className="mt-2 font-mono text-[9px] text-mut">Odds &amp; footprint: McCarthy et al. 2023</p>
     </div>
   );
@@ -484,23 +522,116 @@ export function TeamPanel({
 
 export function AxisHeader({ axis }: { axis: Axis }) {
   return (
-    <div
-      className={`group relative flex items-baseline gap-3 py-3 ${
-        axis.note ? "cursor-help" : ""
+    <div className="flex items-baseline gap-1.5 py-3">
+      <span className="font-mono text-[28px] font-bold leading-none">{axis.score ?? "–"}</span>
+      <span className="font-mono text-[10px] text-mut">/ 100</span>
+      <span className="ml-auto text-lg font-bold tracking-tight">{axis.name}</span>
+    </div>
+  );
+}
+
+/** Shared factor-bar grid — the uniform "important factors" presentation
+ *  used by the Founder, Market, and Idea vs Market score boxes. */
+function FactorBars({
+  items,
+}: {
+  items: Array<{ key: string; label: string; score: number | null; maxScore: number }>;
+}) {
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+      {items.map((component) => (
+        <div key={component.key}>
+          <div className="flex justify-between gap-2 font-mono text-[9px] text-mut">
+            <span>{component.label}</span>
+            <span>
+              {component.score ?? "–"}/{component.maxScore}
+            </span>
+          </div>
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-line">
+            <span
+              className="block h-full rounded-full bg-navy"
+              style={{
+                width: `${((component.score ?? 0) / component.maxScore) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const FOUNDER_FACTOR_PLACEHOLDERS = [
+  { key: "individual_quality", label: "Individual quality", score: null, maxScore: 100 },
+  { key: "configuration", label: "Configuration", score: null, maxScore: 100 },
+  { key: "diversity", label: "Diversity", score: null, maxScore: 100 },
+  { key: "trait_coverage", label: "Trait coverage", score: null, maxScore: 100 },
+];
+
+const MARKET_FACTOR_PLACEHOLDERS = [
+  { key: "tam", label: "TAM scale", score: null, maxScore: 25 },
+  { key: "sam", label: "SAM scale", score: null, maxScore: 25 },
+  { key: "som", label: "SOM scale", score: null, maxScore: 30 },
+  { key: "evidence", label: "Sizing evidence", score: null, maxScore: 8 },
+  { key: "traction", label: "Market traction", score: null, maxScore: 7 },
+  { key: "competition", label: "Competitive room", score: null, maxScore: 5 },
+];
+
+const PMF_FACTOR_PLACEHOLDERS = [
+  { key: "customer_pull", label: "Customer pull", score: null, maxScore: 40 },
+  { key: "reality_check", label: "Reality check", score: null, maxScore: 30 },
+  { key: "swot", label: "SWOT balance", score: null, maxScore: 20 },
+  { key: "competition", label: "Competitive position", score: null, maxScore: 10 },
+];
+
+function VerdictChip({
+  verdict,
+}: {
+  verdict: { label: string; positive: boolean } | null;
+}) {
+  if (!verdict) {
+    return (
+      <span className="rounded bg-page px-2 py-0.5 font-mono text-[10px] font-bold text-mut">
+        PENDING
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
+        verdict.positive ? "bg-good/10 text-good-text" : "bg-critical/10 text-critical"
       }`}
     >
-      <span className="font-mono text-[28px] font-bold leading-none">{axis.score ?? "–"}</span>
-      <span className="text-lg font-bold tracking-tight">{axis.name}</span>
-      <span className="ml-auto font-mono text-[10px] text-mut">/ 100</span>
-      {axis.note && (
-        <div
-          role="tooltip"
-          className="pointer-events-none absolute left-0 top-full z-30 w-72 rounded-md border border-line bg-card p-3 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
-        >
-          <div className="eyebrow mb-1">Why this score</div>
-          <p className="text-xs leading-relaxed text-sub">{axis.note}</p>
+      {verdict.label}
+    </span>
+  );
+}
+
+/** Founder axis box — same anatomy as the Market and Idea boxes:
+ *  axis header, short rationale, factor bars. */
+export function FounderScorePanel({
+  axis,
+  assessment,
+}: {
+  axis: Axis;
+  assessment: FounderAssessment | null;
+}) {
+  return (
+    <div className="mb-4 rounded-lg border border-line bg-card px-4">
+      <AxisHeader axis={axis} />
+      <div className="border-t border-line py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-mono text-[10px] uppercase text-mut">Hybrid team score</span>
+          {!assessment && <VerdictChip verdict={null} />}
         </div>
-      )}
+        <p className="mt-1.5 text-xs leading-relaxed text-sub">
+          {assessment?.rationale ?? "–"}
+        </p>
+        <FactorBars items={assessment?.factors ?? FOUNDER_FACTOR_PLACEHOLDERS} />
+        <p className="mt-2 font-mono text-[9px] text-mut">
+          components per McCarthy et al. 2023 · LLM adjustment bounded to ±10
+        </p>
+      </div>
     </div>
   );
 }
@@ -582,51 +713,40 @@ export function MarketPanel({
     <>
       <div className="rounded-lg border border-line bg-card px-4">
         <AxisHeader axis={axis} />
-        {assessment && (
-          <div className="border-t border-line py-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-mono text-[10px] uppercase text-mut">
-                €{assessment.investmentAmountEur.toLocaleString("en-US")} check
-              </span>
-              <span
-                className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
-                  assessment.worthInvesting
-                    ? "bg-good/10 text-good-text"
-                    : "bg-critical/10 text-critical"
-                }`}
-              >
-                {assessment.worthInvesting ? "INVEST" : "PASS"}
-              </span>
-            </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-sub">{assessment.rationale}</p>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
-              {assessment.components.map((component) => (
-                <div key={component.key}>
-                  <div className="flex justify-between gap-2 font-mono text-[9px] text-mut">
-                    <span>{component.label}</span>
-                    <span>{component.score}/{component.maxScore}</span>
-                  </div>
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-line">
-                    <span
-                      className="block h-full rounded-full bg-navy"
-                      style={{ width: `${(component.score / component.maxScore) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 font-mono text-[9px] text-mut">
-              investment threshold {assessment.threshold}/100 · market sizes carry 80% of score
-            </p>
+        <div className="border-t border-line py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-mono text-[10px] uppercase text-mut">
+              €{(assessment?.investmentAmountEur ?? 100_000).toLocaleString("en-US")} check
+            </span>
+            <VerdictChip
+              verdict={
+                assessment
+                  ? {
+                      label: assessment.worthInvesting ? "INVEST" : "PASS",
+                      positive: assessment.worthInvesting,
+                    }
+                  : null
+              }
+            />
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-sub">
+            {assessment?.rationale ?? "–"}
+          </p>
+          <FactorBars items={assessment?.components ?? MARKET_FACTOR_PLACEHOLDERS} />
+          <p className="mt-2 font-mono text-[9px] text-mut">
+            investment threshold {assessment?.threshold ?? "–"}/100 · market sizes carry 80% of
+            score
+          </p>
+          {assessment && (
             <button
               type="button"
               onClick={() => setShowExplanation(true)}
               className="mt-3 text-xs font-semibold text-navy hover:underline"
             >
-              How is this score calculated? →
+              How is this score calculated?
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-4">
         {sizing.map((row) => {
@@ -799,7 +919,7 @@ export function CompetitorsPanel({ competitors }: { competitors: Competitor[] })
                   rel="noreferrer"
                   className="text-[13px] font-semibold hover:text-navy hover:underline"
                 >
-                  {c.name} ↗
+                  {c.name} <ExternalIcon />
                 </a>
               ) : (
                 <span className="text-[13px] font-semibold">{c.name}</span>
@@ -842,30 +962,38 @@ export function IdeaPanel({
     <>
       <div className="rounded-lg border border-line bg-card px-4">
         <AxisHeader axis={axis} />
-        {assessment && (
-          <div className="border-t border-line py-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-mono text-[10px] uppercase text-mut">PMF evidence proxy</span>
-              <span
-                className={`rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
-                  assessment.passesThreshold
-                    ? "bg-good/10 text-good-text"
-                    : "bg-critical/10 text-critical"
-                }`}
-              >
-                {assessment.verdict.toUpperCase()}
-              </span>
-            </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-sub">{assessment.rationale}</p>
+        <div className="border-t border-line py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-mono text-[10px] uppercase text-mut">PMF evidence proxy</span>
+            <VerdictChip
+              verdict={
+                assessment
+                  ? {
+                      label: assessment.verdict.toUpperCase(),
+                      positive: assessment.passesThreshold,
+                    }
+                  : null
+              }
+            />
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-sub">
+            {assessment?.rationale ?? "–"}
+          </p>
+          <FactorBars items={assessment?.components ?? PMF_FACTOR_PLACEHOLDERS} />
+          <p className="mt-2 font-mono text-[9px] text-mut">
+            screening threshold {assessment?.threshold ?? "–"}/100 · customer pull carries 40% of
+            score
+          </p>
+          {assessment && (
             <button
               type="button"
               onClick={() => setShowExplanation(true)}
               className="mt-3 text-xs font-semibold text-navy hover:underline"
             >
-              How is this score calculated? →
+              How is this score calculated?
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-line bg-card px-3 py-2.5">
@@ -967,7 +1095,7 @@ function ProductFitExplanation({
                 rel="noreferrer"
                 className="block rounded-md border border-line px-3 py-2.5 text-xs font-medium hover:border-navy hover:text-navy"
               >
-                {source.title} ↗
+                {source.title} <ExternalIcon />
               </a>
             ))}
           </div>
@@ -1018,34 +1146,14 @@ const SWOT_META = [
   { key: "r", label: "Risk", cls: "text-critical" },
 ] as const;
 
-const RECOMMENDATION: Record<Decision, { label: string; cls: string }> = {
-  fund: { label: "Fund $100K", cls: "text-good-text" },
-  observe: { label: "Observe", cls: "text-[#8a5f00]" },
-  pass: { label: "Pass", cls: "text-critical" },
-};
-
 export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
-  const rec = memo.recommendation
-    ? RECOMMENDATION[memo.recommendation]
-    : { label: "Pending", cls: "text-mut" };
   return (
     <div className="rounded-lg border border-line bg-card p-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-3">
-        <span className={`text-lg font-bold tracking-tight ${rec.cls}`}>{rec.label}</span>
-        <span className="ml-auto font-mono text-[28px] font-bold leading-none">
-          {memo.score ?? "–"}
-          <span className="text-[10px] font-semibold text-mut"> / 100</span>
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
-        <div>
-          <div className="eyebrow">Company snapshot</div>
-          <p className="mt-1 text-[13px] leading-relaxed">{memo.snapshot}</p>
-        </div>
-
-        <div>
-          <div className="eyebrow">Investment hypotheses</div>
+      <div>
+        <div className="eyebrow">Investment hypotheses</div>
+        {memo.hypotheses.length === 0 ? (
+          <p className="mt-1 text-xs text-sub">No hypotheses derived yet.</p>
+        ) : (
           <ul className="mt-1.5 space-y-1.5">
             {memo.hypotheses.map((h) => {
               const t = h.trust ? TRUST[h.trust] : null;
@@ -1062,7 +1170,7 @@ export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
               );
             })}
           </ul>
-        </div>
+        )}
       </div>
 
       <div className="mt-4 border-t border-line pt-3">
@@ -1110,17 +1218,6 @@ export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
 
 /* ── decision rail (signature element) ────────────────────── */
 
-const BUDGET_S = 24 * 3600;
-
-function fmt(s: number) {
-  const sign = s < 0 ? "-" : "";
-  s = Math.abs(Math.floor(s));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
-
 export function DecisionRail({
   app,
   decision,
@@ -1130,39 +1227,27 @@ export function DecisionRail({
   decision: Decision | undefined;
   onDecide: (d: Decision | undefined) => void;
 }) {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const elapsed = app.firstSignalAgoH * 3600 + tick;
-  const remaining = BUDGET_S - elapsed;
-  const overdue = remaining < 0;
-  const frac = Math.min(elapsed / BUDGET_S, 1);
-
+  const assessment = app.overallAssessment;
   return (
     <footer className="border-t border-line bg-card">
-      <div className="h-[3px] w-full bg-line">
-        <div
-          className={overdue ? "h-full bg-critical" : "h-full bg-navy"}
-          style={{ width: `${frac * 100}%` }}
-        />
-      </div>
       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-3 px-6 py-3">
-        <div>
-          <div className="eyebrow">First signal → decision</div>
-          <div
-            className={`font-mono text-lg font-semibold tabular-nums leading-tight ${overdue ? "text-critical" : ""}`}
-            suppressHydrationWarning
+        <div className="flex items-baseline gap-3">
+          <span className="text-[15px] font-bold tracking-tight">{app.company}</span>
+          <span className="font-mono text-lg font-semibold leading-tight">
+            {assessment?.score ?? "–"}
+            <span className="text-mut"> / 100</span>
+          </span>
+          <span
+            className={`text-sm font-semibold ${
+              assessment
+                ? assessment.passesThreshold
+                  ? "text-good-text"
+                  : "text-critical"
+                : "text-mut"
+            }`}
           >
-            {fmt(elapsed)}
-            <span className="text-mut"> / 24:00:00</span>
-          </div>
-        </div>
-        <div className="hidden text-xs text-sub sm:block">
-          <span className="font-semibold text-ink">{app.company}</span>
-          {overdue && <span className="ml-2 font-mono text-[11px] font-semibold text-critical">OVER BUDGET</span>}
+            {assessment?.verdict ?? "Pending"}
+          </span>
         </div>
 
         <div className="ml-auto flex items-center gap-2">

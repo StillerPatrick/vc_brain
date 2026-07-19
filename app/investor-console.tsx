@@ -7,18 +7,18 @@ import {
   listApplications,
   metadataAssetUrl,
   rerunApplication,
-  restartStartupResearch,
   StartupApplication,
   StartupResearchSource,
 } from "@/lib/api";
 import { BIG5_KEY, Decision } from "@/lib/data";
 import { FounderDeepDive, toApplicationView } from "./live-application";
 import {
-  AxisHeader,
   CompetitorsPanel,
   DecisionRail,
+  ExternalIcon,
   FounderCard,
   FOUNDER_COLORS,
+  FounderScorePanel,
   IdeaPanel,
   MarketPanel,
   MemoPanel,
@@ -32,94 +32,40 @@ interface InvestorConsoleProps {
   initialTime: number;
 }
 
-function ResearchStatusPanel({ live }: { live: StartupApplication }) {
+/** Combined status + action: what the re-run button shows in each state. */
+function rerunState(live: StartupApplication) {
   const metadata = live.metadata;
-  const [restarting, setRestarting] = useState(false);
-  const [restartError, setRestartError] = useState<string | null>(null);
-  if (!metadata) return null;
-
-  const extractingDeck = metadata.status === "processing" && !metadata.company_name;
-  const activelyRunning =
-    extractingDeck ||
-    (metadata.research_status === "processing" && metadata.research_started_at != null) ||
-    restarting;
-  const completed = metadata.research_status === "completed" && !restarting;
-
-  const restart = async () => {
-    setRestarting(true);
-    setRestartError(null);
-    try {
-      await restartStartupResearch(live.id);
-    } catch (error) {
-      setRestarting(false);
-      setRestartError(error instanceof Error ? error.message : "Could not start research");
-    }
+  const extractingDeck = metadata?.status === "processing" && !metadata.company_name;
+  const researching =
+    metadata?.research_status === "processing" && metadata.research_started_at != null;
+  const running = live.status === "processing" || extractingDeck || researching;
+  if (running) {
+    return {
+      running: true,
+      failed: false,
+      title: extractingDeck ? "Analyzing pitch deck" : "Diligence running",
+      detail: extractingDeck
+        ? "reading deck · extracting claims"
+        : "scraping · researching · scoring",
+    };
+  }
+  if (metadata?.research_status === "failed") {
+    return {
+      running: false,
+      failed: true,
+      title: "Research failed — re-run",
+      detail: metadata.research_error ?? "the research agent stopped early",
+    };
+  }
+  return {
+    running: false,
+    failed: false,
+    title: "Re-run diligence",
+    detail:
+      metadata?.research_status === "completed"
+        ? "research complete · re-scrape & re-score"
+        : "re-scrape & re-analyze this application",
   };
-
-  return (
-    <div
-      className={`mb-5 rounded-lg border px-4 py-3 ${
-        activelyRunning
-          ? "border-navy/30 bg-[#f2f7ff]"
-          : completed
-            ? "border-[#b8d9bc] bg-[#f1f8f2]"
-            : metadata.research_status === "failed"
-              ? "border-critical/30 bg-[#fff5f5]"
-              : "border-line bg-card"
-      }`}
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="relative flex size-3 shrink-0">
-          {activelyRunning && (
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-navy opacity-30" />
-          )}
-          <span
-            className={`relative inline-flex size-3 rounded-full ${
-              activelyRunning
-                ? "bg-navy"
-                : completed
-                  ? "bg-good-text"
-                  : metadata.research_status === "failed"
-                    ? "bg-critical"
-                    : "bg-mut"
-            }`}
-          />
-        </span>
-        <div>
-          <div className="text-[13px] font-bold">
-            {activelyRunning
-              ? extractingDeck
-                ? "Pitch deck analysis is working"
-                : "Research agent is working"
-              : completed
-                ? "Research complete"
-                : metadata.research_status === "failed"
-                  ? "Research failed"
-                  : "Research not started"}
-          </div>
-          <div className="mt-0.5 font-mono text-[9px] text-sub">
-            {activelyRunning
-              ? extractingDeck
-                ? "Reading deck · extracting company and market claims"
-                : "Searching · reading sources · calculating markets"
-              : completed && metadata.research_completed_at
-                ? `Finished ${new Date(metadata.research_completed_at).toISOString().replace("T", " ").slice(0, 16)} UTC`
-                : metadata.research_error ?? "Ready to research this deck"}
-          </div>
-        </div>
-        {!activelyRunning && (
-          <button
-            type="button"
-            onClick={() => void restart()}
-            className="ml-auto rounded-md border border-line bg-card px-3 py-1.5 text-[11px] font-semibold text-navy hover:border-navy"
-          >
-            {completed ? "Refresh research" : "Run research"}
-          </button>
-        )}
-      </div>
-      {restartError && <p className="mt-2 text-xs text-critical">{restartError}</p>}
-    </div>
-  );
 }
 
 function DeckPanel({ live }: { live: StartupApplication }) {
@@ -188,7 +134,7 @@ function ResearchSourcesPanel({ live }: { live: StartupApplication }) {
   if (!metadata) return null;
   const sources: StartupResearchSource[] = metadata.research_sources;
   return (
-    <div className="mt-5">
+    <div>
       <div className="mb-2 flex items-center gap-2">
         <div className="eyebrow">Research sources</div>
         {sources.length > 0 && (
@@ -226,7 +172,7 @@ function ResearchSourcesPanel({ live }: { live: StartupApplication }) {
                     {source.title}
                   </div>
                   <div className="mt-0.5 truncate font-mono text-[9px] text-mut">
-                    {source.domain} ↗
+                    {source.domain} <ExternalIcon />
                   </div>
                 </div>
               </div>
@@ -352,7 +298,7 @@ export function InvestorConsole({
           href="/"
           className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy hover:text-navy"
         >
-          ← Home
+          Home
         </Link>
       </header>
 
@@ -410,8 +356,7 @@ export function InvestorConsole({
         <main className="min-w-0 flex-1 overflow-y-auto">
           {app && live ? (
             <div className="mx-auto max-w-[1400px] px-6 py-6">
-              <OverallScorePanel assessment={app.overallAssessment} />
-              {/* header */}
+              {/* 1 · company identity */}
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="eyebrow">
@@ -420,49 +365,65 @@ export function InvestorConsole({
                   </div>
                   <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight">{app.company}</h1>
                 </div>
-                <div className="flex shrink-0 gap-2 pt-4">
-                  <button
-                    type="button"
-                    onClick={handleRerun}
-                    disabled={live.status === "processing"}
-                    title={
-                      live.status === "processing"
-                        ? `Diligence running for ${live.company}`
-                        : `Re-run scraping & analysis for ${live.company}`
-                    }
-                    aria-label={
-                      live.status === "processing"
-                        ? "Diligence running"
-                        : "Re-run scraping and analysis"
-                    }
-                    className={`rounded-md border p-2 ${
-                      live.status === "processing"
-                        ? "cursor-default border-navy/40 text-navy"
-                        : "border-line text-sub hover:border-navy hover:text-navy"
-                    }`}
-                  >
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={live.status === "processing" ? "animate-spin" : undefined}
-                      aria-hidden
-                    >
-                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                      <path d="M21 3v6h-6" />
-                    </svg>
-                  </button>
+                <div className="flex shrink-0 items-stretch gap-2 pt-4">
+                  {(() => {
+                    const state = rerunState(live);
+                    return (
+                      <button
+                        type="button"
+                        onClick={handleRerun}
+                        disabled={state.running}
+                        title={
+                          state.running
+                            ? `Diligence running for ${live.company}`
+                            : `Re-run scraping, research & analysis for ${live.company}`
+                        }
+                        className={`flex items-center gap-2.5 rounded-md border px-3.5 py-2 text-left ${
+                          state.running
+                            ? "cursor-default border-navy/40 bg-[#f2f7ff]"
+                            : state.failed
+                              ? "border-critical/40 bg-[#fff5f5] hover:border-critical"
+                              : "border-line bg-card hover:border-navy"
+                        }`}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`shrink-0 ${
+                            state.failed ? "text-critical" : "text-navy"
+                          } ${state.running ? "animate-spin" : ""}`}
+                          aria-hidden
+                        >
+                          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                          <path d="M21 3v6h-6" />
+                        </svg>
+                        <span className="min-w-0">
+                          <span
+                            className={`block text-[12px] font-bold leading-tight ${
+                              state.failed ? "text-critical" : ""
+                            }`}
+                          >
+                            {state.title}
+                          </span>
+                          <span className="mt-0.5 block max-w-[240px] truncate font-mono text-[9px] text-sub">
+                            {state.detail}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })()}
                   <button
                     type="button"
                     onClick={handleDelete}
                     title={`Delete ${live.company} from the database`}
                     aria-label="Delete this application from the database"
-                    className="rounded-md border border-line p-2 text-sub hover:border-critical hover:text-critical"
+                    className="flex items-center rounded-md border border-line px-3 text-sub hover:border-critical hover:text-critical"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M3 6h18" />
@@ -479,16 +440,20 @@ export function InvestorConsole({
                 <span>{app.location}</span>
               </div>
 
-              <ResearchStatusPanel live={live} />
+              {/* 2 · score overview */}
+              <OverallScorePanel assessment={app.overallAssessment} />
+
               <DeckPanel live={live} />
 
+              {/* 3 · the three screening axes */}
               <div className="mt-6 grid gap-8 xl:grid-cols-[6fr_5fr]">
                 {/* left: founders + team */}
                 <section>
                   <div className="eyebrow mb-2">Founders</div>
-                  <div className="mb-4 rounded-lg border border-line bg-card px-4">
-                    <AxisHeader axis={app.axes.find((a) => a.name === "Founder")!} />
-                  </div>
+                  <FounderScorePanel
+                    axis={app.axes.find((a) => a.name === "Founder")!}
+                    assessment={app.founderAssessment}
+                  />
                   <div className="grid gap-4 md:grid-cols-2">
                     {app.founders.map((f, i) => (
                       <FounderCard
@@ -504,7 +469,7 @@ export function InvestorConsole({
                     <p>dashed: successful-founder benchmark (McCarthy et al. 2023)</p>
                   </div>
 
-                  <TeamPanel ensemble={app.ensemble} founders={app.founders} note={app.teamNote} />
+                  <TeamPanel ensemble={app.ensemble} founders={app.founders} />
                 </section>
 
                 {/* right: market + idea-vs-market */}
@@ -516,10 +481,9 @@ export function InvestorConsole({
                     assessment={app.marketAssessment}
                   />
                   <div className="mt-4">
-                    <div className="eyebrow mb-2">Top 3 competitors</div>
+                    <div className="eyebrow mb-2">Competitors</div>
                     <CompetitorsPanel competitors={app.competitors} />
                   </div>
-                  <ResearchSourcesPanel live={live} />
 
                   <div className="eyebrow mb-2 mt-5">Idea vs market</div>
                   <IdeaPanel
@@ -530,10 +494,28 @@ export function InvestorConsole({
                 </section>
               </div>
 
-              {/* full-width memo below the split */}
+              {/* 4 · investment memo */}
               <div className="mt-10 border-t border-line pt-6">
                 <div className="eyebrow mb-2">Investment memo</div>
                 <MemoPanel memo={app.memo} claims={app.claims} />
+              </div>
+
+              {/* 5 · sources & methodology */}
+              <div className="mt-10 border-t border-line pt-6">
+                <ResearchSourcesPanel live={live} />
+                <div className="mt-6">
+                  <div className="eyebrow mb-2">Methodology</div>
+                  <div className="space-y-1 rounded-lg border border-line bg-card p-4 font-mono text-[10px] leading-relaxed text-mut">
+                    <p>
+                      Market sizing, competitors, SWOT and traction claims: agentic web research —
+                      sources above.
+                    </p>
+                    <p>
+                      Scores support screening; they do not replace investment-committee judgment
+                      or formal diligence.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -545,12 +527,6 @@ export function InvestorConsole({
                     ? `Backend unavailable: ${backendError}`
                     : "No applications yet — the first application appears here after it is submitted."}
                 </p>
-                <Link
-                  href="/apply"
-                  className="mt-4 inline-block rounded-md bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-[#104281]"
-                >
-                  Apply
-                </Link>
               </div>
             </div>
           )}

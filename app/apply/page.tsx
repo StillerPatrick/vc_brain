@@ -111,7 +111,7 @@ export default function Apply() {
           href="/"
           className="ml-auto rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy hover:text-navy"
         >
-          ← Home
+          Home
         </Link>
       </header>
 

@@ -27,8 +27,19 @@ export interface Founder {
 export interface Axis {
   name: string;
   score: number | null;
-  /** Shown as a native tooltip when hovering the score header. */
-  note?: string | null;
+}
+
+export interface ScoreFactor {
+  key: string;
+  label: string;
+  score: number;
+  maxScore: number;
+}
+
+/** Founder-axis assessment: hybrid team score factors + LLM rationale. */
+export interface FounderAssessment {
+  rationale: string | null;
+  factors: ScoreFactor[];
 }
 
 export interface Claim {
@@ -109,10 +120,6 @@ export interface IdeaAnalysis {
  *  Snapshot covers Company snapshot + Problem & product; Traction & KPIs
  *  render from the application's `claims`. */
 export interface Memo {
-  /** overall application score + worded recommendation; null until analyses complete */
-  score: number | null;
-  recommendation: Decision | null;
-  snapshot: string;
   hypotheses: { text: string; trust?: TrustLevel }[];
   swot: { s: string[]; w: string[]; o: string[]; r: string[] };
 }
@@ -128,8 +135,7 @@ export interface Application {
   firstSignalAgoH: number;
   founders: Founder[];
   ensemble: string;
-  /** One-sentence rationale behind the hybrid team score. */
-  teamNote?: string | null;
+  founderAssessment: FounderAssessment | null;
   overallAssessment: OverallAssessment | null;
   axes: Axis[];
   sizing: SizingRow[];

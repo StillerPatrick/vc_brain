@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { ApplicationFounder, StartupApplication } from "@/lib/api";
 import { Application, Founder } from "@/lib/data";
+import { ExternalIcon } from "./ui";
 
 function displayRole(role: string) {
   return role === "dev" ? "Developer" : role.charAt(0).toUpperCase() + role.slice(1);
@@ -83,7 +84,6 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
   const hours =
     Math.round(((currentTime - new Date(live.created_at).getTime()) / 3_600_000) * 10) / 10;
   const metadata = live.metadata;
-  const overallScore = live.overall_score?.score ?? null;
   return {
     id: live.id,
     company: metadata?.company_name ?? live.company,
@@ -111,15 +111,28 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
         }
       : null,
     axes: [
-      {
-        name: "Founder",
-        score: live.team_categorization?.team_score ?? null,
-        note: live.team_categorization?.team_score_rationale ?? null,
-      },
+      { name: "Founder", score: live.team_categorization?.team_score ?? null },
       { name: "Market", score: metadata?.market_score ?? null },
       { name: "Idea vs Market", score: metadata?.product_market_fit_score ?? null },
     ],
-    teamNote: live.team_categorization?.team_score_rationale ?? null,
+    founderAssessment: live.team_categorization?.team_score_components
+      ? {
+          rationale: live.team_categorization.team_score_rationale ?? null,
+          factors: (
+            [
+              ["individual_quality", "Individual quality"],
+              ["configuration", "Configuration"],
+              ["diversity", "Diversity"],
+              ["trait_coverage", "Trait coverage"],
+            ] as const
+          ).map(([key, label]) => ({
+            key,
+            label,
+            score: live.team_categorization?.team_score_components?.[key] ?? 0,
+            maxScore: 100,
+          })),
+        }
+      : null,
     sizing: [
       {
         metric: "TAM",
@@ -193,16 +206,6 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
       confidence: kpi.confidence,
     })) ?? [],
     memo: {
-      score: overallScore,
-      recommendation:
-        overallScore == null
-          ? null
-          : overallScore >= 75
-            ? "fund"
-            : overallScore >= 60
-              ? "observe"
-              : "pass",
-      snapshot: metadata?.summary_sentences?.join(" ") ?? "–",
       hypotheses: metadata?.investment_hypotheses?.map((item) => ({
         text: item.text,
       })) ?? [],
@@ -253,7 +256,7 @@ function ProfileLink({ href, label }: { href: string | null; label: string }) {
   if (!href) return <>–</>;
   return (
     <a href={href} target="_blank" rel="noreferrer" className="break-all text-navy hover:underline">
-      {label} ↗
+      {label} <ExternalIcon />
     </a>
   );
 }

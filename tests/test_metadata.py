@@ -444,3 +444,12 @@ def test_final_research_keeps_only_cited_tavily_sources() -> None:
         "Traction",
         "Weakness",
     ]
+
+
+def test_cited_url_variants_match_inspected_sources() -> None:
+    from app.services.market_research import _match_key
+
+    assert _match_key("https://www.Example.com/page/") == _match_key(
+        "http://example.com/page"
+    )
+    assert _match_key("https://example.com/a") != _match_key("https://example.com/b")
