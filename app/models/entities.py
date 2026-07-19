@@ -312,6 +312,9 @@ class ApplicationFounder(Base):
     role: Mapped[str | None] = mapped_column(String(255))
     about: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer)
+    # LLM-assessed time commitment to this startup: full_time | part_time | side_project
+    startup_commitment: Mapped[str | None] = mapped_column(String(32))
+    commitment_rationale: Mapped[str | None] = mapped_column(Text)
 
     application: Mapped[StartupApplication] = relationship(back_populates="founders")
     user: Mapped[User] = relationship(back_populates="application_memberships")

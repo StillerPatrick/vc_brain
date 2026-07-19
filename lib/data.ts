@@ -13,6 +13,8 @@ export interface Founder {
   /** Optional label when a live backend value is not the persistent Founder Score. */
   scoreLabel?: string;
   signals: string[];
+  /** LLM-assessed time commitment to this startup, already display-worded. */
+  commitment?: string | null;
   /** share of the tracked founder metrics we have data for, 0–100 */
   profileCoverage: number;
   corpusSources: string[];

@@ -59,6 +59,9 @@ class ApplicationFounderResponse(BaseModel):
     job_status: JobStatus | None
     job_error: str | None
     analysis: PersonalityAnalysisResponse | None
+    # LLM-assessed time commitment to this startup
+    startup_commitment: str | None = None
+    commitment_rationale: str | None = None
     # CV fields derived from the LinkedIn profile scrape (users table)
     headline: str | None = None
     location_text: str | None = None

@@ -39,6 +39,7 @@ async def create_database_tables() -> None:
         await connection.run_sync(_add_user_cv_columns)
         await connection.run_sync(_add_startup_metadata_market_size_columns)
         await connection.run_sync(_add_startup_metadata_research_columns)
+        await connection.run_sync(_add_founder_commitment_columns)
 
 
 def _add_personality_summary_column(connection) -> None:
@@ -82,6 +83,25 @@ def _add_user_cv_columns(connection) -> None:
             connection.execute(
                 text(
                     f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"
+                )
+            )
+
+
+def _add_founder_commitment_columns(connection) -> None:
+    columns = {
+        column["name"]
+        for column in inspect(connection).get_columns("application_founders")
+    }
+    definitions = {
+        "startup_commitment": "VARCHAR(32)",
+        "commitment_rationale": "TEXT",
+    }
+    for column_name, column_type in definitions.items():
+        if column_name not in columns:
+            connection.execute(
+                text(
+                    f"ALTER TABLE application_founders ADD COLUMN {column_name} "
+                    f"{column_type}"
                 )
             )
 

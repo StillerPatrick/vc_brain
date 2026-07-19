@@ -56,6 +56,8 @@ export interface ApplicationFounder {
   job_status: JobStatus | null;
   job_error: string | null;
   analysis: PersonalityAnalysis | null;
+  startup_commitment: "full_time" | "part_time" | "side_project" | null;
+  commitment_rationale: string | null;
   headline: string | null;
   location_text: string | null;
   country_code: string | null;

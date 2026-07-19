@@ -32,11 +32,15 @@ function founderView(founder: ApplicationFounder, status: StartupApplication["st
     ...(founder.twitter_handle ? { X: `https://x.com/${founder.twitter_handle}` } : {}),
   };
   const provided = Object.keys(sourceLinks);
+  const commitment = founder.startup_commitment
+    ? COMMITMENT_LABELS[founder.startup_commitment]
+    : null;
   if (!analysis) {
     return {
       name: founder.name,
       role: founder.role ?? "Founder",
       archetype: "–",
+      commitment,
       big5: [0, 0, 0, 0, 0],
       founderScore: 0,
       signals: [status === "processing" ? "Analysis in progress…" : "Analysis unavailable"],
@@ -56,6 +60,7 @@ function founderView(founder: ApplicationFounder, status: StartupApplication["st
     name: founder.name,
     role: founder.role ?? "Founder",
     archetype: displayRole(analysis.classification),
+    commitment,
     big5: [
       analysis.openness * 20,
       analysis.conscientiousness * 20,
@@ -147,6 +152,12 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
 
 /* ── founder deep dive: every stored field, "–" when missing ── */
 
+const COMMITMENT_LABELS = {
+  full_time: "Full-time",
+  part_time: "Part-time",
+  side_project: "Side project",
+} as const;
+
 function dash(value: unknown): string {
   if (value === null || value === undefined || value === "") return "–";
   return String(value);
@@ -224,6 +235,15 @@ export function FounderDeepDive({
         <Section title="Application">
           <Item label="Role" value={dash(founder.role)} />
           <Item label="About" value={dash(founder.about)} />
+          <Item
+            label="Commitment"
+            value={
+              founder.startup_commitment
+                ? COMMITMENT_LABELS[founder.startup_commitment]
+                : "–"
+            }
+          />
+          <Item label="Commitment basis" value={dash(founder.commitment_rationale)} />
           <Item label="Scrape job" value={dash(founder.job_status)} />
           <Item label="Job error" value={dash(founder.job_error)} />
         </Section>

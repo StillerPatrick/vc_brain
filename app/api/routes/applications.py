@@ -382,6 +382,8 @@ def _application_response(application: StartupApplication) -> StartupApplication
             job_status=founder.scrape_job.status if founder.scrape_job else None,
             job_error=founder.scrape_job.error if founder.scrape_job else None,
             analysis=founder.personality_analysis,
+            startup_commitment=founder.startup_commitment,
+            commitment_rationale=founder.commitment_rationale,
             headline=founder.user.headline,
             location_text=founder.user.location_text,
             country_code=founder.user.country_code,

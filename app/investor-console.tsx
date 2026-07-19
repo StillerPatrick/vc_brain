@@ -422,11 +422,35 @@ export function InvestorConsole({
                   <button
                     type="button"
                     onClick={handleRerun}
-                    title={`Re-run scraping & analysis for ${live.company}`}
-                    aria-label="Re-run scraping and analysis"
-                    className="rounded-md border border-line p-2 text-sub hover:border-navy hover:text-navy"
+                    disabled={live.status === "processing"}
+                    title={
+                      live.status === "processing"
+                        ? `Diligence running for ${live.company}`
+                        : `Re-run scraping & analysis for ${live.company}`
+                    }
+                    aria-label={
+                      live.status === "processing"
+                        ? "Diligence running"
+                        : "Re-run scraping and analysis"
+                    }
+                    className={`rounded-md border p-2 ${
+                      live.status === "processing"
+                        ? "cursor-default border-navy/40 text-navy"
+                        : "border-line text-sub hover:border-navy hover:text-navy"
+                    }`}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={live.status === "processing" ? "animate-spin" : undefined}
+                      aria-hidden
+                    >
                       <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                       <path d="M21 3v6h-6" />
                     </svg>

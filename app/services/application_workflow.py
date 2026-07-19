@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -17,8 +18,12 @@ from app.models.entities import (
     User,
 )
 from app.services.analysis_workflow import analyze_and_store
+from app.services.commitment import assess_startup_commitment
+from app.services.exceptions import IntegrationError
 from app.services.orchestrator import ScrapeTargets, run_scrape_job
 from app.services.team import categorize_team
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -60,6 +65,24 @@ async def _analyze_founder(founder_id: uuid.UUID) -> uuid.UUID:
         user = await session.get(User, founder.user_id)
         if user is None:
             raise RuntimeError(f"Founder user {founder.user_id} disappeared")
+
+        # Commitment needs the LinkedIn CV; without it there is no signal.
+        if user.cv_scraped_at is not None:
+            application = await session.get(StartupApplication, founder.application_id)
+            try:
+                assessment = await assess_startup_commitment(
+                    company=application.company if application else "",
+                    summary=application.one_liner if application else None,
+                    user=user,
+                )
+                founder.startup_commitment = assessment.commitment
+                founder.commitment_rationale = assessment.rationale
+                await session.commit()
+            except IntegrationError as exc:
+                logger.warning(
+                    "Commitment assessment failed for founder %s: %s", founder_id, exc
+                )
+
         analysis = await analyze_and_store(
             session,
             user,

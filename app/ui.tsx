@@ -130,6 +130,11 @@ export function FounderCard({
             {founder.role} · <span className="font-medium text-ink">{founder.archetype}</span>
           </div>
         </div>
+        {founder.commitment && (
+          <span className="eyebrow shrink-0 rounded border border-line px-1.5 py-0.5">
+            {founder.commitment}
+          </span>
+        )}
       </div>
 
       <FounderRadar founder={founder} color={color} />
