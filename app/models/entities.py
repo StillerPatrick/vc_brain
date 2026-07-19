@@ -54,9 +54,29 @@ class User(Base):
     twitter_handle: Mapped[str | None] = mapped_column(String(255), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    # CV fields derived from the LinkedIn profile scrape (raw payload lives in
+    # linkedin_profile_data). Updated in place on re-scrape.
+    headline: Mapped[str | None] = mapped_column(String(512))
+    location_text: Mapped[str | None] = mapped_column(String(255))
+    country_code: Mapped[str | None] = mapped_column(String(8))
+    current_position: Mapped[str | None] = mapped_column(String(255))
+    current_company: Mapped[str | None] = mapped_column(String(255))
+    years_experience: Mapped[float | None] = mapped_column(Float)
+    highest_degree: Mapped[str | None] = mapped_column(String(255))
+    field_of_study: Mapped[str | None] = mapped_column(String(255))
+    experience: Mapped[list[Any] | None] = mapped_column(JSON)
+    education: Mapped[list[Any] | None] = mapped_column(JSON)
+    skills: Mapped[list[Any] | None] = mapped_column(JSON)
+    connections_count: Mapped[int | None] = mapped_column(Integer)
+    follower_count: Mapped[int | None] = mapped_column(Integer)
+    cv_scraped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     jobs: Mapped[list["ScrapeJob"]] = relationship(back_populates="user")
     github_data: Mapped[list["GitHubData"]] = relationship(back_populates="user")
     linkedin_data: Mapped[list["LinkedInData"]] = relationship(back_populates="user")
+    linkedin_profile_data: Mapped[list["LinkedInProfileData"]] = relationship(
+        back_populates="user"
+    )
     twitter_data: Mapped[list["TwitterData"]] = relationship(back_populates="user")
     personality_analyses: Mapped[list["PersonalityAnalysis"]] = relationship(
         back_populates="user"
@@ -82,6 +102,9 @@ class ScrapeJob(Base):
     user: Mapped[User] = relationship(back_populates="jobs")
     github_data: Mapped[list["GitHubData"]] = relationship(back_populates="job")
     linkedin_data: Mapped[list["LinkedInData"]] = relationship(back_populates="job")
+    linkedin_profile_data: Mapped[list["LinkedInProfileData"]] = relationship(
+        back_populates="job"
+    )
     twitter_data: Mapped[list["TwitterData"]] = relationship(back_populates="job")
 
 
@@ -107,6 +130,13 @@ class LinkedInData(PlatformDataMixin, Base):
 
     user: Mapped[User] = relationship(back_populates="linkedin_data")
     job: Mapped[ScrapeJob] = relationship(back_populates="linkedin_data")
+
+
+class LinkedInProfileData(PlatformDataMixin, Base):
+    __tablename__ = "linkedin_profile_data"
+
+    user: Mapped[User] = relationship(back_populates="linkedin_profile_data")
+    job: Mapped[ScrapeJob] = relationship(back_populates="linkedin_profile_data")
 
 
 class TwitterData(PlatformDataMixin, Base):

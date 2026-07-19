@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  deleteApplication,
   listApplications,
   metadataAssetUrl,
+  rerunApplication,
   restartStartupResearch,
   StartupApplication,
   StartupResearchSource,
@@ -123,10 +125,10 @@ function DeckPanel({ live }: { live: StartupApplication }) {
   const meta = live.metadata;
   if (!meta) return null;
   return (
-    <div className="mb-5">
+    <div className="mt-6">
       <div className="eyebrow mb-2">Pitch deck</div>
       <div className="rounded-lg border border-line bg-card p-4">
-        <div className="grid gap-4 sm:grid-cols-[minmax(160px,2fr)_3fr]">
+        <div className="grid gap-4 sm:grid-cols-[minmax(160px,1fr)_2fr]">
           <div>
             {meta.first_slide_available ? (
               // Served by the authenticated backend asset endpoint.
@@ -269,6 +271,29 @@ export function InvestorConsole({
   const app = live ? toApplicationView(live, initialTime) : null;
   const decided = Object.values(decisions).filter(Boolean).length;
 
+  const handleRerun = async () => {
+    if (!live) return;
+    try {
+      await rerunApplication(live.id);
+      setApplications(await listApplications());
+    } catch (error) {
+      setBackendError(error instanceof Error ? error.message : "Backend unavailable");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!live) return;
+    if (!window.confirm(`Delete ${live.company} and all its scraped data?`)) return;
+    try {
+      await deleteApplication(live.id);
+      const next = await listApplications();
+      setApplications(next);
+      setSelectedId(next[0]?.id ?? null);
+    } catch (error) {
+      setBackendError(error instanceof Error ? error.message : "Backend unavailable");
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
@@ -366,16 +391,51 @@ export function InvestorConsole({
           {app && live ? (
             <div className="mx-auto max-w-[1400px] px-6 py-6">
               {/* header */}
-              <div className="eyebrow">
-                {app.track === "outbound" ? "Discovered by scan" : "Applied directly"}
-                {live.status === "processing" && " · diligence running"}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="eyebrow">
+                    {app.track === "outbound" ? "Discovered by scan" : "Applied directly"}
+                    {live.status === "processing" && " · diligence running"}
+                  </div>
+                  <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight">{app.company}</h1>
+                </div>
+                <div className="flex shrink-0 gap-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={handleRerun}
+                    title={`Re-run scraping & analysis for ${live.company}`}
+                    aria-label="Re-run scraping and analysis"
+                    className="rounded-md border border-line p-2 text-sub hover:border-navy hover:text-navy"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                      <path d="M21 3v6h-6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    title={`Delete ${live.company} from the database`}
+                    aria-label="Delete this application from the database"
+                    className="rounded-md border border-line p-2 text-sub hover:border-critical hover:text-critical"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight">{app.company}</h1>
               <p className="mt-1 max-w-2xl text-[15px] text-sub">{app.oneLiner}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-mut">
                 <span>{app.sector}</span>
                 <span>{app.location}</span>
               </div>
+
+              <ResearchStatusPanel live={live} />
+              <DeckPanel live={live} />
 
               <div className="mt-6 grid gap-8 xl:grid-cols-[6fr_5fr]">
                 {/* left: founders + team */}
@@ -397,10 +457,8 @@ export function InvestorConsole({
                   <TeamPanel ensemble={app.ensemble} founders={app.founders} />
                 </section>
 
-                {/* right: deck + market + idea-vs-market */}
+                {/* right: market + idea-vs-market */}
                 <section className="min-w-0 xl:border-l xl:border-line xl:pl-8">
-                  <ResearchStatusPanel live={live} />
-                  <DeckPanel live={live} />
                   <div className="eyebrow mb-2">Market</div>
                   <MarketPanel axis={app.axes.find((a) => a.name === "Market")!} sizing={app.sizing} />
                   <div className="mt-4">

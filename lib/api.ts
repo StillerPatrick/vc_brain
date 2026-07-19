@@ -224,3 +224,15 @@ export function getApplication(applicationId: string) {
 export function listApplications() {
   return apiFetch<StartupApplication[]>("/applications");
 }
+
+export function deleteApplication(applicationId: string) {
+  return apiFetch<{ deleted: boolean }>(`/applications/${applicationId}`, {
+    method: "DELETE",
+  });
+}
+
+export function rerunApplication(applicationId: string) {
+  return apiFetch<{ application_id: string }>(`/applications/${applicationId}/rerun`, {
+    method: "POST",
+  });
+}

@@ -8,6 +8,7 @@ from app.db.session import (
     AsyncSessionLocal,
     _add_startup_metadata_market_size_columns,
     _add_startup_metadata_research_columns,
+    _add_user_cv_columns,
     _parse_legacy_market_size,
 )
 from app.models.entities import (
@@ -252,6 +253,32 @@ def test_research_migration_adds_separate_analysis_columns() -> None:
         "research_status",
     }.issubset(columns)
     assert status_value == "processing"
+
+
+def test_linkedin_cv_migration_adds_columns_to_existing_users() -> None:
+    migration_engine = create_engine("sqlite://")
+    with migration_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE users (id VARCHAR PRIMARY KEY)"))
+        _add_user_cv_columns(connection)
+        _add_user_cv_columns(connection)
+        columns = {
+            column["name"]
+            for column in inspect(connection).get_columns("users")
+        }
+
+    assert {
+        "headline",
+        "location_text",
+        "current_position",
+        "current_company",
+        "years_experience",
+        "experience",
+        "education",
+        "skills",
+        "connections_count",
+        "follower_count",
+        "cv_scraped_at",
+    }.issubset(columns)
 
 
 def test_final_research_keeps_only_cited_tavily_sources() -> None:

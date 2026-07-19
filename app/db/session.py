@@ -22,6 +22,7 @@ async def create_database_tables() -> None:
         ApplicationStatus,
         GitHubData,
         LinkedInData,
+        LinkedInProfileData,
         MetadataStatus,
         PersonalityAnalysis,
         ScrapeJob,
@@ -35,6 +36,7 @@ async def create_database_tables() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
         await connection.run_sync(_add_personality_summary_column)
+        await connection.run_sync(_add_user_cv_columns)
         await connection.run_sync(_add_startup_metadata_market_size_columns)
         await connection.run_sync(_add_startup_metadata_research_columns)
 
@@ -54,6 +56,34 @@ def _add_personality_summary_column(connection) -> None:
             "WHERE summary IS NULL"
         )
     )
+
+
+def _add_user_cv_columns(connection) -> None:
+    """Idempotently migrate existing users for LinkedIn CV enrichment."""
+    columns = {column["name"] for column in inspect(connection).get_columns("users")}
+    definitions = {
+        "headline": "VARCHAR(512)",
+        "location_text": "VARCHAR(255)",
+        "country_code": "VARCHAR(8)",
+        "current_position": "VARCHAR(255)",
+        "current_company": "VARCHAR(255)",
+        "years_experience": "FLOAT",
+        "highest_degree": "VARCHAR(255)",
+        "field_of_study": "VARCHAR(255)",
+        "experience": "JSON",
+        "education": "JSON",
+        "skills": "JSON",
+        "connections_count": "INTEGER",
+        "follower_count": "INTEGER",
+        "cv_scraped_at": "TIMESTAMP",
+    }
+    for column_name, column_type in definitions.items():
+        if column_name not in columns:
+            connection.execute(
+                text(
+                    f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"
+                )
+            )
 
 
 def _add_startup_metadata_market_size_columns(connection) -> None:

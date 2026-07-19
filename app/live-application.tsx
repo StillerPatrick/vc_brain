@@ -47,7 +47,8 @@ function founderView(founder: ApplicationFounder, status: StartupApplication["st
   // coverage still reflects which sources actually delivered data
   const withData = [
     analysis.source_summary.github_snapshots,
-    analysis.source_summary.linkedin_snapshots,
+    (analysis.source_summary.linkedin_snapshots ?? 0) +
+      (analysis.source_summary.linkedin_profile_snapshots ?? 0),
     analysis.source_summary.twitter_snapshots,
   ].filter(Boolean).length;
   return {

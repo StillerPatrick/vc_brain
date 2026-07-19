@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.models.entities import (
     GitHubData,
     LinkedInData,
+    LinkedInProfileData,
     PersonalityAnalysis,
     TwitterData,
     User,
@@ -23,12 +24,13 @@ async def analyze_and_store(
 ) -> PersonalityAnalysis:
     github_rows = await _platform_rows(session, GitHubData, user.id)
     linkedin_rows = await _platform_rows(session, LinkedInData, user.id)
+    linkedin_profile_rows = await _platform_rows(session, LinkedInProfileData, user.id)
     twitter_rows = await _platform_rows(session, TwitterData, user.id)
-    if not github_rows and not linkedin_rows and not twitter_rows:
+    if not github_rows and not linkedin_rows and not linkedin_profile_rows and not twitter_rows:
         raise ValueError("User has no scraped data to analyze")
 
     evidence, source_summary = build_compact_evidence(
-        user, github_rows, linkedin_rows, twitter_rows
+        user, github_rows, linkedin_rows, twitter_rows, linkedin_profile_rows
     )
     if application_context:
         evidence["application_context"] = application_context

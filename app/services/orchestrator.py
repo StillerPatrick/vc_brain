@@ -12,11 +12,14 @@ from app.models.entities import (
     GitHubData,
     JobStatus,
     LinkedInData,
+    LinkedInProfileData,
     ScrapeJob,
     TwitterData,
+    User,
 )
 from app.services.apify import ApifyService
 from app.services.github import GitHubService
+from app.services.linkedin_cv import derive_cv
 from app.services.twitter import TwitterPlaywrightService
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,11 @@ async def run_scrape_job(job_id: uuid.UUID, user_id: uuid.UUID, targets: ScrapeT
                     targets.linkedin_url,
                     targets.linkedin_options or {},
                 )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                _scrape_linkedin_profile(job_id, user_id, targets.linkedin_url)
             )
         )
     if targets.twitter_handle:
@@ -90,6 +98,24 @@ async def _scrape_linkedin(
     await _store(LinkedInData, job_id, user_id, payload)
 
 
+async def _scrape_linkedin_profile(
+    job_id: uuid.UUID,
+    user_id: uuid.UUID,
+    profile_url: str,
+) -> None:
+    payload = await ApifyService().scrape_linkedin_profile(profile_url)
+    await _store(LinkedInProfileData, job_id, user_id, payload)
+    cv = derive_cv(payload)
+    async with AsyncSessionLocal() as session:
+        user = await session.get(User, user_id)
+        if user is None:
+            return
+        for field, value in cv.items():
+            setattr(user, field, value)
+        user.cv_scraped_at = datetime.now(timezone.utc)
+        await session.commit()
+
+
 async def _scrape_twitter(
     job_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -101,7 +127,10 @@ async def _scrape_twitter(
 
 
 async def _store(
-    model: type[GitHubData] | type[LinkedInData] | type[TwitterData],
+    model: type[GitHubData]
+    | type[LinkedInData]
+    | type[LinkedInProfileData]
+    | type[TwitterData],
     job_id: uuid.UUID,
     user_id: uuid.UUID,
     payload: dict[str, Any] | list[Any],
