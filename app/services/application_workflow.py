@@ -24,6 +24,7 @@ from app.services.commitment import assess_startup_commitment
 from app.services.exceptions import IntegrationError
 from app.services.orchestrator import ScrapeTargets, run_scrape_job
 from app.services.team import categorize_team
+from app.services.team_score import adjust_team_score, base_score, compute_score_components
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,7 @@ async def _finalize_application(
             return
 
         analyses: list[PersonalityAnalysis] = []
+        founder_contexts: list[dict] = []
         job_failures: list[str] = []
         for founder in application.founders:
             analysis = (
@@ -159,12 +161,47 @@ async def _finalize_application(
             )
             if analysis:
                 analyses.append(analysis)
+                founder_contexts.append(
+                    {
+                        "role": founder.role,
+                        "archetype": analysis.classification,
+                        "cv_summary": analysis.summary,
+                        "commitment": founder.startup_commitment,
+                    }
+                )
             if founder.scrape_job_id:
                 job = await session.get(ScrapeJob, founder.scrape_job_id)
                 if job and job.status == JobStatus.failed:
                     job_failures.append(f"{founder.user_id}: {job.error or 'scrape failed'}")
 
-        application.team_categorization = categorize_team(analyses)
+        categorization = categorize_team(analyses)
+        if analyses:
+            components = compute_score_components(categorization, analyses)
+            base = base_score(components)
+            try:
+                adjusted = await adjust_team_score(
+                    company=application.company,
+                    base=base,
+                    components=components,
+                    founders=founder_contexts,
+                )
+                score, rationale = adjusted.score, adjusted.rationale
+            except IntegrationError as exc:
+                logger.warning(
+                    "Team score adjustment failed for application %s: %s",
+                    application_id,
+                    exc,
+                )
+                score, rationale = base, None
+            categorization.update(
+                {
+                    "team_score": score,
+                    "team_score_base": base,
+                    "team_score_components": components,
+                    "team_score_rationale": rationale,
+                }
+            )
+        application.team_categorization = categorization
         errors = job_failures + analysis_errors
         if len(analyses) == len(application.founders) and not job_failures:
             application.status = ApplicationStatus.completed

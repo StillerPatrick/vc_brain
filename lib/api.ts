@@ -84,6 +84,11 @@ export interface TeamCategorization {
   team_big5: Record<string, number>;
   trait_gaps: string[];
   analyzed_count: number;
+  /** Hybrid team score: paper-based components + bounded LLM adjustment. */
+  team_score?: number | null;
+  team_score_base?: number | null;
+  team_score_components?: Record<string, number> | null;
+  team_score_rationale?: string | null;
 }
 
 export type MetadataStatus = "processing" | "completed" | "failed";

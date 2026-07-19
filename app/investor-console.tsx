@@ -502,7 +502,7 @@ export function InvestorConsole({
                     <p>dashed: successful-founder benchmark (McCarthy et al. 2023)</p>
                   </div>
 
-                  <TeamPanel ensemble={app.ensemble} founders={app.founders} />
+                  <TeamPanel ensemble={app.ensemble} founders={app.founders} note={app.teamNote} />
                 </section>
 
                 {/* right: market + idea-vs-market */}

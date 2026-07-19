@@ -94,10 +94,15 @@ export function toApplicationView(live: StartupApplication, currentTime: number)
     founders: live.founders.map((founder) => founderView(founder, live.status)),
     ensemble: live.team_categorization?.ensemble ?? "–",
     axes: [
-      { name: "Founder", score: null },
+      {
+        name: "Founder",
+        score: live.team_categorization?.team_score ?? null,
+        note: live.team_categorization?.team_score_rationale ?? null,
+      },
       { name: "Market", score: null },
       { name: "Idea vs Market", score: null },
     ],
+    teamNote: live.team_categorization?.team_score_rationale ?? null,
     sizing: [
       {
         metric: "TAM",

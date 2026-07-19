@@ -27,6 +27,8 @@ export interface Founder {
 export interface Axis {
   name: string;
   score: number | null;
+  /** Shown as a native tooltip when hovering the score header. */
+  note?: string | null;
 }
 
 export interface Claim {
@@ -82,6 +84,8 @@ export interface Application {
   firstSignalAgoH: number;
   founders: Founder[];
   ensemble: string;
+  /** One-sentence rationale behind the hybrid team score. */
+  teamNote?: string | null;
   axes: Axis[];
   sizing: SizingRow[];
   competitors: Competitor[];

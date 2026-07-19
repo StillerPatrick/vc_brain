@@ -208,7 +208,15 @@ function fmtRoles(roles: string[]) {
   return [...counts].map(([r, n]) => (n > 1 ? `${r} ×${n}` : r)).join(" + ");
 }
 
-export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: Founder[] }) {
+export function TeamPanel({
+  ensemble,
+  founders,
+  note,
+}: {
+  ensemble: string;
+  founders: Founder[];
+  note?: string | null;
+}) {
   const analyzed = founders.filter((f) => f.big5.some((v) => v > 0));
   const team = analyzed.map((f) => f.archetype);
   const evaluated = HIGH_ODDS_COMBOS.map((c) => ({ ...c, missing: comboMissing(team, c.roles) }));
@@ -292,6 +300,9 @@ export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: 
           </p>
         </div>
       </div>
+      {note && (
+        <p className="mt-3 border-t border-line pt-2 text-xs leading-relaxed text-sub">{note}</p>
+      )}
       <p className="mt-2 font-mono text-[9px] text-mut">Odds &amp; footprint: McCarthy et al. 2023</p>
     </div>
   );
@@ -301,10 +312,23 @@ export function TeamPanel({ ensemble, founders }: { ensemble: string; founders: 
 
 export function AxisHeader({ axis }: { axis: Axis }) {
   return (
-    <div className="flex items-baseline gap-3 py-3">
+    <div
+      className={`group relative flex items-baseline gap-3 py-3 ${
+        axis.note ? "cursor-help" : ""
+      }`}
+    >
       <span className="font-mono text-[28px] font-bold leading-none">{axis.score ?? "–"}</span>
       <span className="text-lg font-bold tracking-tight">{axis.name}</span>
       <span className="ml-auto font-mono text-[10px] text-mut">/ 100</span>
+      {axis.note && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute left-0 top-full z-30 w-72 rounded-md border border-line bg-card p-3 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+        >
+          <div className="eyebrow mb-1">Why this score</div>
+          <p className="text-xs leading-relaxed text-sub">{axis.note}</p>
+        </div>
+      )}
     </div>
   );
 }
