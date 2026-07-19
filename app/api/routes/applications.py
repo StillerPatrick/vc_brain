@@ -12,6 +12,7 @@ from app.models.entities import (
     JobStatus,
     ScrapeJob,
     StartupApplication,
+    StartupMetadata,
     User,
 )
 from app.schemas.applications import (
@@ -23,7 +24,7 @@ from app.schemas.applications import (
     linkedin_profile_url,
     twitter_handle,
 )
-from app.schemas.metadata import StartupMetadataResponse
+from app.schemas.metadata import startup_metadata_response
 from app.services.application_workflow import FounderWorkItem, process_application
 from app.services.orchestrator import ScrapeTargets
 
@@ -160,7 +161,9 @@ async def list_applications(
                 selectinload(StartupApplication.founders).selectinload(
                     ApplicationFounder.personality_analysis
                 ),
-                selectinload(StartupApplication.startup_metadata),
+                selectinload(StartupApplication.startup_metadata).selectinload(
+                    StartupMetadata.research_sources
+                ),
             )
             .order_by(StartupApplication.created_at.desc())
             .limit(100)
@@ -185,7 +188,9 @@ async def get_application(
             selectinload(StartupApplication.founders).selectinload(
                 ApplicationFounder.personality_analysis
             ),
-            selectinload(StartupApplication.startup_metadata),
+            selectinload(StartupApplication.startup_metadata).selectinload(
+                StartupMetadata.research_sources
+            ),
         )
     )
     if application is None:
@@ -237,23 +242,7 @@ def _application_response(application: StartupApplication) -> StartupApplication
     ]
     startup_metadata = application.startup_metadata
     metadata_response = (
-        StartupMetadataResponse(
-            id=startup_metadata.id,
-            application_id=startup_metadata.application_id,
-            status=startup_metadata.status,
-            company_name=startup_metadata.company_name,
-            summary_sentences=startup_metadata.summary_sentences,
-            deck_filename=startup_metadata.deck_filename,
-            deck_content_type=startup_metadata.deck_content_type,
-            deck_available=bool(startup_metadata.deck_data),
-            first_slide_available=startup_metadata.first_slide_data is not None,
-            model=startup_metadata.model,
-            error=startup_metadata.error,
-            created_at=startup_metadata.created_at,
-            completed_at=startup_metadata.completed_at,
-        )
-        if startup_metadata
-        else None
+        startup_metadata_response(startup_metadata) if startup_metadata else None
     )
     return StartupApplicationResponse(
         id=application.id,

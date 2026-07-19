@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listApplications, metadataAssetUrl, StartupApplication } from "@/lib/api";
+import {
+  listApplications,
+  metadataAssetUrl,
+  restartStartupResearch,
+  StartupApplication,
+  StartupResearchSource,
+} from "@/lib/api";
 import { BIG5_KEY, Decision } from "@/lib/data";
 import { toApplicationView } from "./live-application";
 import {
@@ -20,6 +26,97 @@ import {
 interface InvestorConsoleProps {
   initialApplications: StartupApplication[];
   initialBackendError: string | null;
+  initialTime: number;
+}
+
+function ResearchStatusPanel({ live }: { live: StartupApplication }) {
+  const metadata = live.metadata;
+  const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState<string | null>(null);
+  if (!metadata) return null;
+
+  const extractingDeck = metadata.status === "processing" && !metadata.company_name;
+  const activelyRunning =
+    extractingDeck ||
+    (metadata.research_status === "processing" && metadata.research_started_at != null) ||
+    restarting;
+  const completed = metadata.research_status === "completed" && !restarting;
+
+  const restart = async () => {
+    setRestarting(true);
+    setRestartError(null);
+    try {
+      await restartStartupResearch(live.id);
+    } catch (error) {
+      setRestarting(false);
+      setRestartError(error instanceof Error ? error.message : "Could not start research");
+    }
+  };
+
+  return (
+    <div
+      className={`mb-5 rounded-lg border px-4 py-3 ${
+        activelyRunning
+          ? "border-navy/30 bg-[#f2f7ff]"
+          : completed
+            ? "border-[#b8d9bc] bg-[#f1f8f2]"
+            : metadata.research_status === "failed"
+              ? "border-critical/30 bg-[#fff5f5]"
+              : "border-line bg-card"
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="relative flex size-3 shrink-0">
+          {activelyRunning && (
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-navy opacity-30" />
+          )}
+          <span
+            className={`relative inline-flex size-3 rounded-full ${
+              activelyRunning
+                ? "bg-navy"
+                : completed
+                  ? "bg-good-text"
+                  : metadata.research_status === "failed"
+                    ? "bg-critical"
+                    : "bg-mut"
+            }`}
+          />
+        </span>
+        <div>
+          <div className="text-[13px] font-bold">
+            {activelyRunning
+              ? extractingDeck
+                ? "Pitch deck analysis is working"
+                : "Research agent is working"
+              : completed
+                ? "Research complete"
+                : metadata.research_status === "failed"
+                  ? "Research failed"
+                  : "Research not started"}
+          </div>
+          <div className="mt-0.5 font-mono text-[9px] text-sub">
+            {activelyRunning
+              ? extractingDeck
+                ? "Reading deck · extracting company and market claims"
+                : "Searching · reading sources · calculating markets"
+              : completed && metadata.research_completed_at
+                ? `Finished ${new Date(metadata.research_completed_at).toISOString().replace("T", " ").slice(0, 16)} UTC`
+                : metadata.research_error ?? "Ready to research this deck"}
+          </div>
+        </div>
+        {!activelyRunning && (
+          <button
+            type="button"
+            onClick={() => void restart()}
+            className="ml-auto rounded-md border border-line bg-card px-3 py-1.5 text-[11px] font-semibold text-navy hover:border-navy"
+          >
+            {completed ? "Refresh research" : "Run research"}
+          </button>
+        )}
+      </div>
+      {restartError && <p className="mt-2 text-xs text-critical">{restartError}</p>}
+    </div>
+  );
 }
 
 function DeckPanel({ live }: { live: StartupApplication }) {
@@ -76,9 +173,88 @@ function DeckPanel({ live }: { live: StartupApplication }) {
   );
 }
 
+function ResearchSourcesPanel({ live }: { live: StartupApplication }) {
+  const metadata = live.metadata;
+  if (!metadata) return null;
+  const sources: StartupResearchSource[] = metadata.research_sources;
+  return (
+    <div className="mt-5">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="eyebrow">Research sources</div>
+        {sources.length > 0 && (
+          <span className="rounded-full bg-page px-2 py-0.5 font-mono text-[9px] text-mut">
+            {sources.length} crucial
+          </span>
+        )}
+      </div>
+      {sources.length > 0 ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {sources.map((source) => (
+            <a
+              key={source.id}
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="group min-w-0 rounded-lg border border-line bg-card p-3 transition hover:-translate-y-0.5 hover:border-navy/40 hover:shadow-sm"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-line bg-page font-mono text-xs font-bold uppercase text-mut">
+                  <span>{source.domain.charAt(0)}</span>
+                  {source.favicon_url && (
+                    // Favicons are supplied by Tavily or resolved from the source origin.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={source.favicon_url}
+                      alt=""
+                      className="absolute inset-0 size-full bg-white object-contain p-1.5"
+                      onError={(event) => { event.currentTarget.style.display = "none"; }}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] font-semibold group-hover:text-navy">
+                    {source.title}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-[9px] text-mut">
+                    {source.domain} ↗
+                  </div>
+                </div>
+              </div>
+              {source.excerpt && (
+                <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-sub">
+                  {source.excerpt}
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-1">
+                {source.supports.map((label) => (
+                  <span
+                    key={label}
+                    className="rounded-sm border border-line bg-page px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wide text-sub"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : metadata.research_status === "processing" && metadata.research_started_at ? (
+        <div className="rounded-lg border border-dashed border-line bg-card p-4 font-mono text-xs text-mut">
+          Research agent is searching and reading market sources…
+        </div>
+      ) : (
+        <div className="rounded-lg border border-line bg-card p-4 text-xs text-critical">
+          {metadata.research_error ?? "No research sources were retained."}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InvestorConsole({
   initialApplications,
   initialBackendError,
+  initialTime,
 }: InvestorConsoleProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialApplications[0]?.id ?? null,
@@ -90,7 +266,7 @@ export function InvestorConsole({
 
   const live =
     applications.find((application) => application.id === selectedId) ?? applications[0];
-  const app = live ? toApplicationView(live) : null;
+  const app = live ? toApplicationView(live, initialTime) : null;
   const decided = Object.values(decisions).filter(Boolean).length;
 
   useEffect(() => {
@@ -143,7 +319,7 @@ export function InvestorConsole({
             const d = decisions[application.id];
             const active = application.id === (live?.id ?? null);
             const hours =
-              (Date.now() - new Date(application.created_at).getTime()) / 3_600_000;
+              (initialTime - new Date(application.created_at).getTime()) / 3_600_000;
             return (
               <button
                 key={application.id}
@@ -223,12 +399,15 @@ export function InvestorConsole({
 
                 {/* right: deck + market + idea-vs-market */}
                 <section className="min-w-0 xl:border-l xl:border-line xl:pl-8">
+                  <ResearchStatusPanel live={live} />
                   <DeckPanel live={live} />
                   <div className="eyebrow mb-2">Market</div>
                   <MarketPanel axis={app.axes.find((a) => a.name === "Market")!} sizing={app.sizing} />
                   <div className="mt-4">
+                    <div className="eyebrow mb-2">Top 3 competitors</div>
                     <CompetitorsPanel competitors={app.competitors} />
                   </div>
+                  <ResearchSourcesPanel live={live} />
 
                   <div className="eyebrow mb-2 mt-5">Idea vs market</div>
                   <IdeaPanel axis={app.axes.find((a) => a.name === "Idea vs Market")!} idea={app.idea} />

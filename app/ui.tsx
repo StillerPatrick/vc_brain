@@ -309,6 +309,11 @@ export function MarketPanel({ axis, sizing }: { axis: Axis; sizing: SizingRow[] 
                 {known ? `${over ? "▼" : under ? "▲" : "≈"} ` : ""}
                 {row.computed}
               </div>
+              {row.detail && (
+                <p className="mt-2 line-clamp-3 text-[10px] leading-relaxed text-sub" title={row.detail}>
+                  {row.detail}
+                </p>
+              )}
             </div>
           );
         })}
@@ -345,7 +350,18 @@ export function CompetitorsPanel({ competitors }: { competitors: Competitor[] })
         return (
           <div key={c.name} className="border-b border-line py-2.5 last:border-b-0">
             <div className="flex items-baseline gap-2">
-              <span className="text-[13px] font-semibold">{c.name}</span>
+              {c.url ? (
+                <a
+                  href={c.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] font-semibold hover:text-navy hover:underline"
+                >
+                  {c.name} ↗
+                </a>
+              ) : (
+                <span className="text-[13px] font-semibold">{c.name}</span>
+              )}
               <span className={`ml-auto shrink-0 font-mono text-[10px] font-semibold ${t.cls}`}>
                 {t.label}
               </span>
@@ -459,7 +475,9 @@ export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
       <div className="mt-4 border-t border-line pt-3">
         <div className="eyebrow">Traction &amp; KPIs</div>
         {claims.length === 0 ? (
-          <p className="py-2.5 text-xs text-sub">No claims verified yet.</p>
+          <p className="py-2.5 text-xs text-sub">
+            No independently verifiable public traction or KPI evidence was found.
+          </p>
         ) : (
           <div className="grid gap-x-8 sm:grid-cols-2">
             {claims.map((c) => (
@@ -477,7 +495,18 @@ export function MemoPanel({ memo, claims }: { memo: Memo; claims: Claim[] }) {
               <div className={`font-mono text-[10px] font-semibold uppercase tracking-wide ${m.cls}`}>
                 {m.label}
               </div>
-              <p className="text-xs leading-relaxed text-sub">{memo.swot[m.key]}</p>
+              {memo.swot[m.key].length === 0 ? (
+                <p className="text-xs leading-relaxed text-sub">–</p>
+              ) : (
+                <ul className="mt-1 space-y-1.5">
+                  {memo.swot[m.key].map((item) => (
+                    <li key={item} className="flex gap-1.5 text-xs leading-relaxed text-sub">
+                      <span className="text-mut">›</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </div>

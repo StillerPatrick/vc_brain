@@ -39,6 +39,7 @@ export interface SizingRow {
   metric: "TAM" | "SAM" | "SOM";
   claimed: string;
   computed: string;
+  detail?: string;
 }
 
 /** Named competitors (memo: how each differs, who becomes a threat). Max 3 shown. */
@@ -46,6 +47,7 @@ export interface Competitor {
   name: string;
   angle: string;
   threat: "high" | "medium" | "low";
+  url?: string;
 }
 
 export interface IdeaAnalysis {
@@ -64,7 +66,7 @@ export interface Memo {
   recommendation: Decision | null;
   snapshot: string;
   hypotheses: { text: string; trust?: TrustLevel }[];
-  swot: { s: string; w: string; o: string; r: string };
+  swot: { s: string[]; w: string[]; o: string[]; r: string[] };
 }
 
 export interface Application {

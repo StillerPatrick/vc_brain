@@ -16,6 +16,11 @@ and categorizes founding teams.
 - Keeps platform results linked to both a user and a scrape job.
 - Uses the OpenAI Responses API with structured output to score five observable
   professional-persona traits and persist a primary work-style classification.
+- Runs an OpenAI SDK research agent after pitch-deck extraction. The agent uses
+  Tavily search and website extraction tools to produce a source-backed SWOT and
+  independent TAM, SAM, and SOM estimates.
+- Persists every web source used in the final research, including its title,
+  favicon, excerpt, and the analysis sections it supports.
 - Sends a compact evidence digest instead of raw provider payloads and records
   input/output token usage with every analysis.
 - Accepts 1–3-founder startup applications, runs founder diligence concurrently,
@@ -58,6 +63,9 @@ X_AUTH_TOKEN=
 # Required for POST /api/v1/analysis/{user_id}. The model is configurable.
 OPENAI_API_KEY=openai_api_key
 OPENAI_MODEL=gpt-5.6-terra
+
+# Required for the pitch-deck market research agent.
+TAVILY_API_KEY=tvly-your-api-key
 ```
 
 Start the backend and frontend together from the repository root:
@@ -183,11 +191,18 @@ curl -X POST http://localhost:8000/api/v1/metadata/APPLICATION_ID \
 curl http://localhost:8000/api/v1/metadata/APPLICATION_ID
 curl http://localhost:8000/api/v1/metadata/APPLICATION_ID/deck --output pitch-deck.pdf
 curl http://localhost:8000/api/v1/metadata/APPLICATION_ID/first-slide --output first-slide.png
+
+# Re-run only web research without uploading the deck again.
+curl -X POST http://localhost:8000/api/v1/metadata/APPLICATION_ID/research
 ```
 
 The upload endpoint accepts PDF files up to 20 MB and returns `202 Accepted`.
 The metadata response moves from `processing` to `completed` or `failed`, and
-contains the deck-derived company name and exactly three summary sentences.
+contains the deck-derived company name, exactly three summary sentences, the
+deck-claimed market sizes, independently estimated market sizes, SWOT fields,
+and a normalized `research_sources` list. The agent searches and extracts source
+websites through Tavily; a missing `TAVILY_API_KEY` marks the research as failed
+without discarding the already extracted deck summary and preview.
 The `startup_metadata` table is created idempotently during application startup,
 so existing SQLite and PostgreSQL databases are migrated without deleting data.
 
@@ -201,6 +216,7 @@ export APIFY_API_TOKEN=apify_api_your_token
 export GITHUB_TOKEN=github_pat_your_token
 export X_AUTH_TOKEN=your_x_auth_token_cookie
 export OPENAI_API_KEY=openai_api_key
+export TAVILY_API_KEY=tvly-your-api-key
 docker compose up --build -d
 docker compose logs -f api
 ```

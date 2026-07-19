@@ -7,6 +7,19 @@ function displayRole(role: string) {
   return role === "dev" ? "Developer" : role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+function marketSize(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "$ –";
+  const magnitude = [
+    { minimum: 1_000_000_000_000, suffix: "T" },
+    { minimum: 1_000_000_000, suffix: "B" },
+    { minimum: 1_000_000, suffix: "M" },
+    { minimum: 1_000, suffix: "K" },
+  ].find((item) => Math.abs(value) >= item.minimum);
+  if (!magnitude) return `$${Number(value.toFixed(1))}`;
+  const compact = Number((value / magnitude.minimum).toFixed(1));
+  return `$${compact}${magnitude.suffix}`;
+}
+
 function founderView(founder: ApplicationFounder, status: StartupApplication["status"]): Founder {
   const analysis = founder.analysis;
   // tabs show every profile the founder supplied, linked to the profile
@@ -59,9 +72,9 @@ function founderView(founder: ApplicationFounder, status: StartupApplication["st
 
 /** Map a live backend application onto the dossier shape. Sections the
  *  backend doesn't produce yet render as empty ("–") in the same widgets. */
-export function toApplicationView(live: StartupApplication): Application {
+export function toApplicationView(live: StartupApplication, currentTime: number): Application {
   const hours =
-    Math.round(((Date.now() - new Date(live.created_at).getTime()) / 3_600_000) * 10) / 10;
+    Math.round(((currentTime - new Date(live.created_at).getTime()) / 3_600_000) * 10) / 10;
   const metadata = live.metadata;
   return {
     id: live.id,
@@ -79,19 +92,53 @@ export function toApplicationView(live: StartupApplication): Application {
       { name: "Idea vs Market", score: null },
     ],
     sizing: [
-      { metric: "TAM", claimed: "$ –", computed: "$ –" },
-      { metric: "SAM", claimed: "$ –", computed: "$ –" },
-      { metric: "SOM", claimed: "$ –", computed: "$ –" },
+      {
+        metric: "TAM",
+        claimed: marketSize(metadata?.tam),
+        computed: marketSize(metadata?.estimated_tam),
+        detail: metadata?.market_sizing?.tam.rationale,
+      },
+      {
+        metric: "SAM",
+        claimed: marketSize(metadata?.sam),
+        computed: marketSize(metadata?.estimated_sam),
+        detail: metadata?.market_sizing?.sam.rationale,
+      },
+      {
+        metric: "SOM",
+        claimed: marketSize(metadata?.som),
+        computed: marketSize(metadata?.estimated_som),
+        detail: metadata?.market_sizing?.som.rationale,
+      },
     ],
-    competitors: [],
+    competitors: metadata?.competitors?.map((competitor) => ({
+      name: competitor.name,
+      angle: competitor.differentiation,
+      threat: competitor.threat,
+      url: competitor.website_url,
+    })) ?? [],
     idea: { innovation: "–", realistic: "–" },
-    claims: [],
+    claims: metadata?.traction_kpis?.map((kpi) => ({
+      text: kpi.text,
+      trust: kpi.trust,
+      source: kpi.source_urls.length > 0
+        ? new URL(kpi.source_urls[0]).hostname.replace(/^www\./, "")
+        : "web research",
+      confidence: kpi.confidence,
+    })) ?? [],
     memo: {
       score: null,
       recommendation: null,
       snapshot: metadata?.summary_sentences?.join(" ") ?? "–",
-      hypotheses: [],
-      swot: { s: "–", w: "–", o: "–", r: "–" },
+      hypotheses: metadata?.investment_hypotheses?.map((item) => ({
+        text: item.text,
+      })) ?? [],
+      swot: {
+        s: metadata?.swot_strengths?.map((item) => item.text) ?? [],
+        w: metadata?.swot_weaknesses?.map((item) => item.text) ?? [],
+        o: metadata?.swot_opportunities?.map((item) => item.text) ?? [],
+        r: metadata?.swot_threats?.map((item) => item.text) ?? [],
+      },
     },
   };
 }

@@ -53,12 +53,74 @@ export interface TeamCategorization {
 
 export type MetadataStatus = "processing" | "completed" | "failed";
 
+export interface SourcedInsight {
+  text: string;
+  source_urls: string[];
+}
+
+export interface MarketEstimate {
+  value_usd: number | null;
+  rationale: string;
+  source_urls: string[];
+}
+
+export interface StartupResearchSource {
+  id: string;
+  url: string;
+  title: string;
+  domain: string;
+  favicon_url: string | null;
+  excerpt: string | null;
+  supports: string[];
+  accessed_at: string;
+}
+
+export interface ResearchedCompetitor {
+  name: string;
+  website_url: string;
+  differentiation: string;
+  threat: "high" | "medium" | "low";
+  source_urls: string[];
+}
+
+export interface InvestmentHypothesis {
+  text: string;
+  source_urls: string[];
+}
+
+export interface TractionKPI {
+  text: string;
+  trust: "verified" | "reported" | "contradicted";
+  confidence: number;
+  source_urls: string[];
+}
+
 export interface StartupMetadata {
   id: string;
   application_id: string;
   status: MetadataStatus;
   company_name: string | null;
   summary_sentences: string[] | null;
+  tam: number | null;
+  sam: number | null;
+  som: number | null;
+  estimated_tam: number | null;
+  estimated_sam: number | null;
+  estimated_som: number | null;
+  market_sizing: Record<"tam" | "sam" | "som", MarketEstimate> | null;
+  swot_strengths: SourcedInsight[] | null;
+  swot_weaknesses: SourcedInsight[] | null;
+  swot_opportunities: SourcedInsight[] | null;
+  swot_threats: SourcedInsight[] | null;
+  competitors: ResearchedCompetitor[] | null;
+  investment_hypotheses: InvestmentHypothesis[] | null;
+  traction_kpis: TractionKPI[] | null;
+  research_status: MetadataStatus;
+  research_model: string | null;
+  research_error: string | null;
+  research_completed_at: string | null;
+  research_started_at: string | null;
+  research_sources: StartupResearchSource[];
   deck_filename: string;
   deck_content_type: string;
   deck_available: boolean;
@@ -138,6 +200,13 @@ export function uploadPitchDeck(applicationId: string, deck: File) {
   return apiFetch<{ metadata_id: string; status: MetadataStatus }>(
     `/metadata/${applicationId}`,
     { method: "POST", body: formData },
+  );
+}
+
+export function restartStartupResearch(applicationId: string) {
+  return apiFetch<{ metadata_id: string; status: MetadataStatus }>(
+    `/metadata/${applicationId}/research`,
+    { method: "POST" },
   );
 }
 

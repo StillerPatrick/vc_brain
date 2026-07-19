@@ -188,6 +188,34 @@ class StartupMetadata(Base):
     )
     company_name: Mapped[str | None] = mapped_column(String(255))
     summary_sentences: Mapped[list[str] | None] = mapped_column(JSON)
+    tam: Mapped[float | None] = mapped_column(Float)
+    sam: Mapped[float | None] = mapped_column(Float)
+    som: Mapped[float | None] = mapped_column(Float)
+    estimated_tam: Mapped[float | None] = mapped_column(Float)
+    estimated_sam: Mapped[float | None] = mapped_column(Float)
+    estimated_som: Mapped[float | None] = mapped_column(Float)
+    market_sizing: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    swot_strengths: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    swot_weaknesses: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    swot_opportunities: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    swot_threats: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    competitors: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    investment_hypotheses: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    traction_kpis: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    research_status: Mapped[MetadataStatus] = mapped_column(
+        Enum(MetadataStatus, native_enum=False),
+        default=MetadataStatus.processing,
+        index=True,
+    )
+    research_model: Mapped[str | None] = mapped_column(String(255))
+    research_response_id: Mapped[str | None] = mapped_column(String(255))
+    research_error: Mapped[str | None] = mapped_column(Text)
+    research_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    research_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
     deck_filename: Mapped[str] = mapped_column(String(512))
     deck_content_type: Mapped[str] = mapped_column(String(100), default="application/pdf")
     deck_data: Mapped[bytes] = mapped_column(LargeBinary)
@@ -203,6 +231,35 @@ class StartupMetadata(Base):
 
     application: Mapped[StartupApplication] = relationship(
         back_populates="startup_metadata"
+    )
+    research_sources: Mapped[list["StartupResearchSource"]] = relationship(
+        back_populates="startup_metadata",
+        cascade="all, delete-orphan",
+        order_by="StartupResearchSource.position",
+    )
+
+
+class StartupResearchSource(Base):
+    __tablename__ = "startup_research_sources"
+    __table_args__ = (UniqueConstraint("metadata_id", "url"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    metadata_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("startup_metadata.id", ondelete="CASCADE"), index=True
+    )
+    url: Mapped[str] = mapped_column(String(2048))
+    title: Mapped[str] = mapped_column(String(512))
+    domain: Mapped[str] = mapped_column(String(255))
+    favicon_url: Mapped[str | None] = mapped_column(String(2048))
+    excerpt: Mapped[str | None] = mapped_column(Text)
+    supports: Mapped[list[str]] = mapped_column(JSON)
+    position: Mapped[int] = mapped_column(Integer)
+    accessed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+    startup_metadata: Mapped[StartupMetadata] = relationship(
+        back_populates="research_sources"
     )
 
 
