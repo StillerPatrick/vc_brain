@@ -1,13 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import {
-  getApplication,
-  StartupApplication,
-  submitApplication,
-  uploadPitchDeck,
-} from "@/lib/api";
+import { submitApplication, uploadPitchDeck } from "@/lib/api";
 
 interface Member {
   name: string;
@@ -74,84 +69,30 @@ export default function Apply() {
   const [deckName, setDeckName] = useState("");
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const deckInputRef = useRef<HTMLInputElement>(null);
-  const [application, setApplication] = useState<StartupApplication | null>(null);
-  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const setMember = (i: number, patch: Partial<Member>) =>
     setTeam((prev) => prev.map((m, j) => (j === i ? { ...m, ...patch } : m)));
 
-  useEffect(() => {
-    if (!applicationId) return;
-    let cancelled = false;
-    const refresh = async () => {
-      try {
-        const value = await getApplication(applicationId);
-        if (!cancelled) setApplication(value);
-        return value.status;
-      } catch (error) {
-        if (!cancelled) setSubmitError(error instanceof Error ? error.message : "Could not load application");
-        return "failed";
-      }
-    };
-    void refresh();
-    const timer = window.setInterval(async () => {
-      const status = await refresh();
-      if (status !== "processing") window.clearInterval(timer);
-    }, 3000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [applicationId]);
-
-  if (applicationId) {
-    const status = application?.status ?? "processing";
+  if (submitted) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
         <div className="w-full max-w-2xl rounded-lg border border-line bg-card p-8">
-          <div className={`font-mono text-3xl ${status === "failed" ? "text-critical" : "text-good-text"}`}>
-            {status === "processing" ? "◷" : status === "failed" ? "✕" : "✓"}
-          </div>
+          <div className="font-mono text-3xl text-good-text">✓</div>
           <h1 className="mt-2 text-xl font-bold tracking-tight">
-            {status === "processing" ? "Founder diligence in progress" : "Founder diligence complete"}
+            Thanks{team[0]?.name ? ` ${team[0].name.split(" ")[0]}` : ""} for applying!
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-sub">
-            Application <span className="font-mono text-xs text-ink">{applicationId}</span> · {status}
+            You&apos;ll have a decision within 24 hours.
           </p>
-          {application?.founders.map((founder) => (
-            <div key={founder.user_id} className="mt-4 rounded-md border border-line bg-page p-4 text-left">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-semibold">{founder.name}</span>
-                <span className="font-mono text-[10px] uppercase text-mut">
-                  {founder.analysis?.classification ?? founder.job_status ?? "queued"}
-                </span>
-              </div>
-              {founder.analysis && (
-                <p className="mt-2 text-xs leading-relaxed text-sub">{founder.analysis.summary}</p>
-              )}
-              {founder.job_error && <p className="mt-2 text-xs text-critical">{founder.job_error}</p>}
-            </div>
-          ))}
-          {application?.team_categorization && (
-            <div className="mt-4 rounded-md border border-line p-4">
-              <div className="eyebrow">Team ensemble</div>
-              <div className="mt-1 font-semibold">{application.team_categorization.ensemble}</div>
-              <p className="mt-1 text-xs text-sub">
-                Configuration: {application.team_categorization.configuration_odds ?? "—"}× · trait gaps:{" "}
-                {application.team_categorization.trait_gaps.join(", ") || "none"}
-              </p>
-            </div>
-          )}
-          {(submitError || application?.error) && (
-            <p className="mt-4 text-xs text-critical">{submitError ?? application?.error}</p>
-          )}
+          {submitError && <p className="mt-4 text-xs text-critical">{submitError}</p>}
           <Link
-            href="/console"
+            href="/"
             className="mt-6 inline-block rounded-md bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-[#104281]"
           >
-            Investor console
+            Back to home
           </Link>
         </div>
       </div>
@@ -167,10 +108,10 @@ export default function Apply() {
           <span className="eyebrow hidden md:inline">Application</span>
         </div>
         <Link
-          href="/console"
+          href="/"
           className="ml-auto rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy hover:text-navy"
         >
-          Investor console →
+          ← Home
         </Link>
       </header>
 
@@ -200,7 +141,7 @@ export default function Apply() {
                 x: member.x || undefined,
               })),
             });
-            setApplicationId(result.application_id);
+            setSubmitted(true);
             if (deckFile) {
               try {
                 await uploadPitchDeck(result.application_id, deckFile);

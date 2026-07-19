@@ -348,10 +348,10 @@ export function InvestorConsole({
           {Math.max(0, applications.length - decided)} to decide
         </span>
         <Link
-          href="/apply"
+          href="/"
           className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy hover:text-navy"
         >
-          Apply →
+          ← Home
         </Link>
       </header>
 
