@@ -148,7 +148,7 @@ export default function Apply() {
             <p className="mt-4 text-xs text-critical">{submitError ?? application?.error}</p>
           )}
           <Link
-            href="/"
+            href="/console"
             className="mt-6 inline-block rounded-md bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-[#104281]"
           >
             Investor console
@@ -167,7 +167,7 @@ export default function Apply() {
           <span className="eyebrow hidden md:inline">Application</span>
         </div>
         <Link
-          href="/"
+          href="/console"
           className="ml-auto rounded-md border border-line px-3 py-1.5 text-xs font-semibold hover:border-navy hover:text-navy"
         >
           Investor console →

@@ -14,8 +14,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VC Brain — Investor Console",
-  description: "Deploying $100K checks in 24 hours",
+  title: "VC Brain — Venture diligence, made clear",
+  description:
+    "AI-assisted venture diligence across pitch decks, founder signals, market research, and investment decisions.",
 };
 
 export default function RootLayout({
