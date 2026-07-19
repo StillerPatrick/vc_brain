@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete as sa_delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -9,9 +9,15 @@ from app.db.session import get_session
 from app.models.entities import (
     ApplicationFounder,
     ApplicationStatus,
+    GitHubData,
     JobStatus,
+    LinkedInData,
+    LinkedInProfileData,
+    MetadataStatus,
+    PersonalityAnalysis,
     ScrapeJob,
     StartupApplication,
+    TwitterData,
     User,
 )
 from app.schemas.applications import (
@@ -26,6 +32,7 @@ from app.schemas.applications import (
 from app.schemas.metadata import StartupMetadataResponse
 from app.services.application_workflow import FounderWorkItem, process_application
 from app.services.orchestrator import ScrapeTargets
+from app.services.startup_metadata import extract_and_store
 
 router = APIRouter()
 
@@ -191,6 +198,123 @@ async def get_application(
     if application is None:
         raise HTTPException(status_code=404, detail="Application not found")
     return _application_response(application)
+
+
+@router.delete("/{application_id}")
+async def delete_application(
+    application_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, bool]:
+    application = await session.scalar(
+        select(StartupApplication)
+        .where(StartupApplication.id == application_id)
+        .options(selectinload(StartupApplication.founders))
+    )
+    if application is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    user_ids = [founder.user_id for founder in application.founders]
+    await session.delete(application)  # ORM cascades founders + metadata
+    await session.flush()
+
+    # SQLite doesn't enforce FK cascades here, so clean up per-user data
+    # explicitly — but only for users no other application references.
+    for user_id in user_ids:
+        still_referenced = await session.scalar(
+            select(func.count())
+            .select_from(ApplicationFounder)
+            .where(ApplicationFounder.user_id == user_id)
+        )
+        if still_referenced:
+            continue
+        for model in (
+            GitHubData,
+            LinkedInData,
+            LinkedInProfileData,
+            TwitterData,
+            PersonalityAnalysis,
+            ScrapeJob,
+        ):
+            await session.execute(sa_delete(model).where(model.user_id == user_id))
+        await session.execute(sa_delete(User).where(User.id == user_id))
+
+    await session.commit()
+    return {"deleted": True}
+
+
+@router.post(
+    "/{application_id}/rerun",
+    response_model=ApplicationAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def rerun_application(
+    application_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+) -> ApplicationAcceptedResponse:
+    """Re-run all scraping, analyses, and deck metadata as if re-applying."""
+    application = await session.scalar(
+        select(StartupApplication)
+        .where(StartupApplication.id == application_id)
+        .options(
+            selectinload(StartupApplication.founders).selectinload(
+                ApplicationFounder.user
+            ),
+            selectinload(StartupApplication.startup_metadata),
+        )
+    )
+    if application is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    work_items: list[FounderWorkItem] = []
+    for founder in application.founders:
+        user = founder.user
+        platforms = [
+            platform
+            for platform, value in (
+                ("github", user.github_handle),
+                ("linkedin", user.linkedin_url),
+                ("twitter", user.twitter_handle),
+            )
+            if value
+        ]
+        job = ScrapeJob(
+            user_id=user.id,
+            status=JobStatus.processing,
+            platforms=platforms,
+        )
+        session.add(job)
+        await session.flush()
+        founder.scrape_job_id = job.id
+        work_items.append(
+            FounderWorkItem(
+                founder_id=founder.id,
+                user_id=user.id,
+                job_id=job.id,
+                targets=ScrapeTargets(
+                    github_handle=user.github_handle,
+                    linkedin_url=user.linkedin_url,
+                    twitter_handle=user.twitter_handle,
+                ),
+            )
+        )
+
+    application.status = ApplicationStatus.processing
+    application.error = None
+    application.completed_at = None
+    metadata = application.startup_metadata
+    metadata_id = None
+    if metadata is not None:
+        metadata.status = MetadataStatus.processing
+        metadata.error = None
+        metadata.completed_at = None
+        metadata_id = metadata.id
+
+    await session.commit()
+    background_tasks.add_task(process_application, application.id, work_items)
+    if metadata_id is not None:
+        background_tasks.add_task(extract_and_store, metadata_id)
+    return ApplicationAcceptedResponse(application_id=application.id)
 
 
 async def _find_existing_user(

@@ -7,12 +7,19 @@ from typing import Any, Iterable
 from openai import APIError, APITimeoutError, AsyncOpenAI
 
 from app.core.config import settings
-from app.models.entities import GitHubData, LinkedInData, TwitterData, User
+from app.models.entities import (
+    GitHubData,
+    LinkedInData,
+    LinkedInProfileData,
+    TwitterData,
+    User,
+)
 from app.schemas.analysis import PersonalityScores
 from app.services.exceptions import IntegrationError
+from app.services.linkedin_cv import derive_cv
 
 
-PROMPT_VERSION = "professional-persona-v2-character-summary"
+PROMPT_VERSION = "professional-persona-v3-cv-summary"
 
 SYSTEM_PROMPT = """
 You assess observable professional-persona signals from a compact digest of public
@@ -41,10 +48,12 @@ Rules:
 2. Treat missing platforms and sparse evidence as uncertainty, not a negative signal.
 3. Do not use follower counts alone as evidence of extraversion or leadership.
 4. Distinguish authored posts from reposts and quoted material.
-5. Write `summary` as one plain sentence of at most 24 words. Highlight the two or
-   three strongest observable character or work-style qualities. Do not list projects,
-   platforms, scores, the classification label, or biographical facts. Avoid generic
-   praise and ground the wording in the supplied evidence.
+5. Write `summary` as one plain sentence of at most 28 words. Combine the two or
+   three strongest observable character or work-style qualities with the single most
+   decision-relevant fact from the linkedin_profile CV when available (current role,
+   a notable employer, or education). Do not list platforms, scores, or the
+   classification label. Avoid generic praise and ground the wording in the supplied
+   evidence.
 6. Keep `rationale` evidence-based, non-diagnostic, and under 120 words. It is the
    detailed explanation behind the summary and scores.
 """.strip()
@@ -99,13 +108,20 @@ def build_compact_evidence(
     github_rows: Iterable[GitHubData],
     linkedin_rows: Iterable[LinkedInData],
     twitter_rows: Iterable[TwitterData],
+    linkedin_profile_rows: Iterable[LinkedInProfileData] = (),
 ) -> tuple[dict[str, Any], dict[str, int]]:
     github_rows = list(github_rows)
     linkedin_rows = list(linkedin_rows)
     twitter_rows = list(twitter_rows)
+    linkedin_profile_rows = list(linkedin_profile_rows)
 
     github = _compact_github(github_rows[0].payload) if github_rows else None
     linkedin_posts = _compact_posts(linkedin_rows, platform="linkedin", limit=12)
+    linkedin_profile = (
+        _compact_linkedin_profile(linkedin_profile_rows[0].payload)
+        if linkedin_profile_rows
+        else None
+    )
     twitter_posts = _compact_posts(
         twitter_rows,
         platform="twitter",
@@ -116,6 +132,7 @@ def build_compact_evidence(
     source_summary = {
         "github_snapshots": len(github_rows),
         "linkedin_snapshots": len(linkedin_rows),
+        "linkedin_profile_snapshots": len(linkedin_profile_rows),
         "twitter_snapshots": len(twitter_rows),
         "linkedin_posts_used": len(linkedin_posts),
         "twitter_posts_used": len(twitter_posts),
@@ -129,10 +146,30 @@ def build_compact_evidence(
         },
         "coverage": source_summary,
         "github": github,
+        "linkedin_profile": linkedin_profile,
         "linkedin_authored_posts": linkedin_posts,
         "twitter_authored_posts": twitter_posts,
     }
     return evidence, source_summary
+
+
+def _compact_linkedin_profile(payload: dict[str, Any] | list[Any]) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    cv = derive_cv(payload)
+    # network counts stay out of the evidence (rule 3: no follower-count signals)
+    return {
+        key: cv[key]
+        for key in (
+            "headline",
+            "current_position",
+            "current_company",
+            "years_experience",
+            "experience",
+            "education",
+            "skills",
+        )
+    }
 
 
 def _compact_github(payload: dict[str, Any] | list[Any]) -> dict[str, Any] | None:

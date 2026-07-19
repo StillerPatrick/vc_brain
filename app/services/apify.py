@@ -34,6 +34,13 @@ class ApifyService:
         items = await self._run_actor(settings.linkedin_actor_id, run_input)
         return [item for item in items if include_reposts or not item.get("repostedBy")]
 
+    async def scrape_linkedin_profile(self, profile_url: str) -> dict[str, Any]:
+        """Fetch full profile details (experience, education, skills, …)."""
+        items = await self._run_actor(
+            settings.linkedin_profile_actor_id, {"queries": [profile_url]}
+        )
+        return items[0]
+
     async def _run_actor(
         self, actor_id: str, run_input: dict[str, Any]
     ) -> list[dict[str, Any]]:
