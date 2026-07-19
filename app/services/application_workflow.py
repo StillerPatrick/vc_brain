@@ -12,9 +12,11 @@ from app.models.entities import (
     ApplicationFounder,
     ApplicationStatus,
     JobStatus,
+    MetadataStatus,
     PersonalityAnalysis,
     ScrapeJob,
     StartupApplication,
+    StartupMetadata,
     User,
 )
 from app.services.analysis_workflow import analyze_and_store
@@ -67,12 +69,20 @@ async def _analyze_founder(founder_id: uuid.UUID) -> uuid.UUID:
             raise RuntimeError(f"Founder user {founder.user_id} disappeared")
 
         # Commitment needs the LinkedIn CV; without it there is no signal.
+        # The CV scrape has already finished here (all scrape jobs are awaited
+        # before analysis), but the deck-based company assessment runs
+        # concurrently — wait for it so the prompt sees its output.
         if user.cv_scraped_at is not None:
             application = await session.get(StartupApplication, founder.application_id)
+            company_name, summary = await _await_company_assessment(
+                session, founder.application_id
+            )
             try:
                 assessment = await assess_startup_commitment(
-                    company=application.company if application else "",
-                    summary=application.one_liner if application else None,
+                    company=company_name
+                    or (application.company if application else ""),
+                    summary=summary
+                    or (application.one_liner if application else None),
                     user=user,
                 )
                 founder.startup_commitment = assessment.commitment
@@ -94,6 +104,37 @@ async def _analyze_founder(founder_id: uuid.UUID) -> uuid.UUID:
         founder.personality_analysis_id = analysis.id
         await session.commit()
         return analysis.id
+
+
+async def _await_company_assessment(
+    session, application_id: uuid.UUID
+) -> tuple[str | None, str | None]:
+    """Block until the deck-based company assessment finishes (when one is
+    running) and return its extracted company name and summary. No metadata
+    row means no deck was uploaded — return immediately. Times out after
+    ~3 minutes and falls back to the submitted fields."""
+    for _ in range(60):
+        row = (
+            await session.execute(
+                select(
+                    StartupMetadata.status,
+                    StartupMetadata.company_name,
+                    StartupMetadata.summary_sentences,
+                ).where(StartupMetadata.application_id == application_id)
+            )
+        ).first()
+        if row is None:
+            return None, None
+        status, company_name, sentences = row
+        if status != MetadataStatus.processing:
+            return company_name, " ".join(sentences) if sentences else None
+        await asyncio.sleep(3)
+    logger.warning(
+        "Company assessment for application %s still running after timeout; "
+        "assessing commitment from submitted fields",
+        application_id,
+    )
+    return None, None
 
 
 async def _finalize_application(
