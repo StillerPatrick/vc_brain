@@ -26,10 +26,10 @@ function DeckPanel({ live }: { live: StartupApplication }) {
   const meta = live.metadata;
   if (!meta) return null;
   return (
-    <div className="mb-5">
+    <div className="mt-6">
       <div className="eyebrow mb-2">Pitch deck</div>
       <div className="rounded-lg border border-line bg-card p-4">
-        <div className="grid gap-4 sm:grid-cols-[minmax(160px,2fr)_3fr]">
+        <div className="grid gap-4 sm:grid-cols-[minmax(160px,1fr)_2fr]">
           <div>
             {meta.first_slide_available ? (
               // Served by the authenticated backend asset endpoint.
@@ -201,6 +201,8 @@ export function InvestorConsole({
                 <span>{app.location}</span>
               </div>
 
+              <DeckPanel live={live} />
+
               <div className="mt-6 grid gap-8 xl:grid-cols-[6fr_5fr]">
                 {/* left: founders + team */}
                 <section>
@@ -221,9 +223,8 @@ export function InvestorConsole({
                   <TeamPanel ensemble={app.ensemble} founders={app.founders} />
                 </section>
 
-                {/* right: deck + market + idea-vs-market */}
+                {/* right: market + idea-vs-market */}
                 <section className="min-w-0 xl:border-l xl:border-line xl:pl-8">
-                  <DeckPanel live={live} />
                   <div className="eyebrow mb-2">Market</div>
                   <MarketPanel axis={app.axes.find((a) => a.name === "Market")!} sizing={app.sizing} />
                   <div className="mt-4">
