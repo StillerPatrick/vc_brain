@@ -10,10 +10,14 @@ export interface Founder {
   big5: number[];
   /** Persistent Founder Score, 0–100 — survives across applications */
   founderScore: number;
+  /** Optional label when a live backend value is not the persistent Founder Score. */
+  scoreLabel?: string;
   signals: string[];
   /** share of the tracked founder metrics we have data for, 0–100 */
   profileCoverage: number;
   corpusSources: string[];
+  /** Canonical profile URL for each source chip when available. */
+  sourceLinks?: Record<string, string>;
 }
 
 /** One of the three screening axes — scored independently, never averaged. */

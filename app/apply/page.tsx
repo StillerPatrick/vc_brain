@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getApplication, StartupApplication, submitApplication } from "@/lib/api";
 
 interface Member {
   name: string;
@@ -43,25 +44,84 @@ function Field({ label, children, hint }: { label: string; children: React.React
 
 export default function Apply() {
   const [company, setCompany] = useState("");
+  const [oneLiner, setOneLiner] = useState("");
   const [sector, setSector] = useState("");
   const [location, setLocation] = useState("");
   const [team, setTeam] = useState<Member[]>([{ ...EMPTY_MEMBER }]);
   const [deckName, setDeckName] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [application, setApplication] = useState<StartupApplication | null>(null);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const setMember = (i: number, patch: Partial<Member>) =>
     setTeam((prev) => prev.map((m, j) => (j === i ? { ...m, ...patch } : m)));
 
-  if (submitted) {
+  useEffect(() => {
+    if (!applicationId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const value = await getApplication(applicationId);
+        if (!cancelled) setApplication(value);
+        return value.status;
+      } catch (error) {
+        if (!cancelled) setSubmitError(error instanceof Error ? error.message : "Could not load application");
+        return "failed";
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(async () => {
+      const status = await refresh();
+      if (status !== "processing") window.clearInterval(timer);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [applicationId]);
+
+  if (applicationId) {
+    const status = application?.status ?? "processing";
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-lg border border-line bg-card p-8 text-center">
-          <div className="font-mono text-3xl text-good-text">✓</div>
-          <h1 className="mt-2 text-xl font-bold tracking-tight">Application received</h1>
+        <div className="w-full max-w-2xl rounded-lg border border-line bg-card p-8">
+          <div className={`font-mono text-3xl ${status === "failed" ? "text-critical" : "text-good-text"}`}>
+            {status === "processing" ? "◷" : status === "failed" ? "✕" : "✓"}
+          </div>
+          <h1 className="mt-2 text-xl font-bold tracking-tight">
+            {status === "processing" ? "Founder diligence in progress" : "Founder diligence complete"}
+          </h1>
           <p className="mt-2 text-sm leading-relaxed text-sub">
-            Thanks {company || "you"} for applying. You&apos;ll have a decision within{" "}
-            <span className="font-mono font-semibold text-ink">24 hours</span>.
+            Application <span className="font-mono text-xs text-ink">{applicationId}</span> · {status}
           </p>
+          {application?.founders.map((founder) => (
+            <div key={founder.user_id} className="mt-4 rounded-md border border-line bg-page p-4 text-left">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-semibold">{founder.name}</span>
+                <span className="font-mono text-[10px] uppercase text-mut">
+                  {founder.analysis?.classification ?? founder.job_status ?? "queued"}
+                </span>
+              </div>
+              {founder.analysis && (
+                <p className="mt-2 text-xs leading-relaxed text-sub">{founder.analysis.summary}</p>
+              )}
+              {founder.job_error && <p className="mt-2 text-xs text-critical">{founder.job_error}</p>}
+            </div>
+          ))}
+          {application?.team_categorization && (
+            <div className="mt-4 rounded-md border border-line p-4">
+              <div className="eyebrow">Team ensemble</div>
+              <div className="mt-1 font-semibold">{application.team_categorization.ensemble}</div>
+              <p className="mt-1 text-xs text-sub">
+                Configuration: {application.team_categorization.configuration_odds ?? "—"}× · trait gaps:{" "}
+                {application.team_categorization.trait_gaps.join(", ") || "none"}
+              </p>
+            </div>
+          )}
+          {(submitError || application?.error) && (
+            <p className="mt-4 text-xs text-critical">{submitError ?? application?.error}</p>
+          )}
           <Link
             href="/"
             className="mt-6 inline-block rounded-md bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-[#104281]"
@@ -91,9 +151,36 @@ export default function Apply() {
 
       <form
         className="mx-auto max-w-2xl px-6 py-10"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          setSubmitted(true);
+          if (team.some((member) => !member.github && !member.linkedin && !member.x)) {
+            setSubmitError("Every founder needs at least one GitHub, LinkedIn, or X profile.");
+            return;
+          }
+          setSubmitting(true);
+          setSubmitError(null);
+          try {
+            const result = await submitApplication({
+              company,
+              one_liner: oneLiner || undefined,
+              sector: sector || undefined,
+              location: location || undefined,
+              deck_filename: deckName || undefined,
+              founders: team.map((member) => ({
+                name: member.name,
+                role: member.role || undefined,
+                about: member.about || undefined,
+                github: member.github || undefined,
+                linkedin: member.linkedin || undefined,
+                x: member.x || undefined,
+              })),
+            });
+            setApplicationId(result.application_id);
+          } catch (error) {
+            setSubmitError(error instanceof Error ? error.message : "Submission failed");
+          } finally {
+            setSubmitting(false);
+          }
         }}
       >
         <h1 className="text-[28px] font-bold leading-tight tracking-tight">Apply for 100K</h1>
@@ -112,6 +199,14 @@ export default function Apply() {
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
                 placeholder="Parsec Robotics"
+              />
+            </Field>
+            <Field label="One-liner">
+              <input
+                className={input}
+                value={oneLiner}
+                onChange={(e) => setOneLiner(e.target.value)}
+                placeholder="What the company does"
               />
             </Field>
             <Field label="Branch">
@@ -258,11 +353,13 @@ export default function Apply() {
           </p>
           <button
             type="submit"
-            className="rounded-md bg-navy px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#104281]"
+            disabled={submitting}
+            className="rounded-md bg-navy px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#104281] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Submit application
+            {submitting ? "Submitting…" : "Submit application"}
           </button>
         </div>
+        {submitError && <p className="mt-3 text-right text-xs text-critical">{submitError}</p>}
       </form>
     </div>
   );

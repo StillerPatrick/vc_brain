@@ -1,0 +1,36 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        BACKEND_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/vc_brain.db
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_GRAPHQL_URL: ${GITHUB_GRAPHQL_URL:-https://api.github.com/graphql}
+      LINKEDIN_ACTOR_ID: ${LINKEDIN_ACTOR_ID:-harvestapi/linkedin-profile-posts}
+      X_AUTH_TOKEN: ${X_AUTH_TOKEN:-}
+      X_PAGE_TIMEOUT_MS: ${X_PAGE_TIMEOUT_MS:-30000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-terra}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-60}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    ipc: host
+    volumes:
+      - sqlite_data:/data
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:

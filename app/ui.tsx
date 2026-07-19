@@ -2,15 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
-import {
   Application,
   ARCHETYPES,
   Axis,
@@ -40,33 +31,114 @@ const TRUST: Record<TrustLevel, { label: string; icon: string; cls: string }> = 
   contradicted: { label: "Contradicted", icon: "✕", cls: "text-critical" },
 };
 
-/* ── founder radar card ───────────────────────────────────── */
+/* ── founder spider card ──────────────────────────────────── */
 
-function RadarTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: { value: number; name: string }[];
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
+const SPIDER_CENTER = 110;
+const SPIDER_RADIUS = 78;
+
+function spiderPoint(index: number, value: number, radius = SPIDER_RADIUS) {
+  const angle = -Math.PI / 2 + (index * Math.PI * 2) / BIG5_AXES.length;
+  const distance = radius * (Math.max(0, Math.min(100, value)) / 100);
+  return {
+    x: Number((SPIDER_CENTER + Math.cos(angle) * distance).toFixed(2)),
+    y: Number((SPIDER_CENTER + Math.sin(angle) * distance).toFixed(2)),
+  };
+}
+
+function spiderPolygon(values: number[], radius = SPIDER_RADIUS) {
+  return BIG5_AXES.map((_, index) => {
+    const point = spiderPoint(index, values[index] ?? 0, radius);
+    return `${point.x},${point.y}`;
+  }).join(" ");
+}
+
+function FounderSpider({ founder, color }: { founder: Founder; color: string }) {
   return (
-    <div className="rounded border border-line bg-card px-2 py-1 font-mono text-[10px] shadow-sm">
-      <span className="text-mut">{label}</span>{" "}
-      <span className="font-semibold">{payload[0].value}</span>
-      {payload[1] && <span className="text-mut"> · bench {payload[1].value}</span>}
+    <div className="mt-3">
+      <div className="flex items-center justify-between">
+        <span className="eyebrow">Big Five spider</span>
+        <span className="font-mono text-[9px] text-mut">solid: founder · dashed: benchmark</span>
+      </div>
+      <svg
+        viewBox="0 0 220 220"
+        className="mt-1 h-[210px] w-full"
+        role="img"
+        aria-label={`${founder.name} Big Five spider diagram`}
+        data-testid="founder-spider-diagram"
+      >
+        <title>{`${founder.name} Big Five: ${founder.big5
+          .map((value, index) => `${BIG5_AXES[index]} ${Math.round(value)}`)
+          .join(", ")}`}</title>
+        {[20, 40, 60, 80, 100].map((level) => (
+          <polygon
+            key={level}
+            points={spiderPolygon(BIG5_AXES.map(() => level))}
+            fill="none"
+            stroke="#e1e0d9"
+            strokeWidth={level === 100 ? 1.2 : 0.8}
+          />
+        ))}
+        {BIG5_AXES.map((axis, index) => {
+          const edge = spiderPoint(index, 100);
+          const label = spiderPoint(index, 100, 96);
+          return (
+            <g key={axis}>
+              <line
+                x1={SPIDER_CENTER}
+                y1={SPIDER_CENTER}
+                x2={edge.x}
+                y2={edge.y}
+                stroke="#e1e0d9"
+                strokeWidth="0.8"
+              />
+              <text
+                x={label.x}
+                y={label.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#686660"
+                fontSize="9"
+                fontFamily="var(--font-plex-mono)"
+              >
+                {axis} {Math.round(founder.big5[index] ?? 0)}
+              </text>
+            </g>
+          );
+        })}
+        <polygon
+          points={spiderPolygon(BENCHMARK)}
+          fill="none"
+          stroke="#898781"
+          strokeWidth="1.5"
+          strokeDasharray="4 3"
+        />
+        <polygon
+          points={spiderPolygon(founder.big5)}
+          fill={color}
+          fillOpacity="0.18"
+          stroke={color}
+          strokeWidth="2.5"
+        />
+        {founder.big5.map((value, index) => {
+          const point = spiderPoint(index, value);
+          return <circle key={BIG5_AXES[index]} cx={point.x} cy={point.y} r="2.5" fill={color} />;
+        })}
+      </svg>
     </div>
   );
 }
 
-export function FounderCard({ founder, color }: { founder: Founder; color: string }) {
-  const data = BIG5_AXES.map((axis, i) => ({
-    axis,
-    v: founder.big5[i],
-    bench: BENCHMARK[i],
-  }));
+export function FounderCard({
+  founder,
+  color,
+  coverageNote,
+  onDeepDive,
+}: {
+  founder: Founder;
+  color: string;
+  coverageNote?: string;
+  onDeepDive?: () => void;
+}) {
   return (
     <div className="rounded-lg border border-line bg-card p-4">
       <div className="flex items-baseline justify-between gap-2">
@@ -76,33 +148,15 @@ export function FounderCard({ founder, color }: { founder: Founder; color: strin
             {founder.role} · <span className="font-medium text-ink">{founder.archetype}</span>
           </div>
         </div>
-        <div className="font-mono text-xl font-semibold leading-none" style={{ color }}>
-          {founder.founderScore}
+        <div className="text-right" title={founder.scoreLabel}>
+          <div className="font-mono text-xl font-semibold leading-none" style={{ color }}>
+            {founder.founderScore}
+          </div>
+          {founder.scoreLabel && <div className="mt-1 font-mono text-[8px] uppercase text-mut">{founder.scoreLabel}</div>}
         </div>
       </div>
 
-      <div className="-mx-2 mt-1 h-[170px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={data} margin={{ top: 8, right: 24, bottom: 4, left: 24 }}>
-            <PolarGrid stroke="#e1e0d9" />
-            <PolarAngleAxis
-              dataKey="axis"
-              tick={{ fontSize: 9, fill: "#898781", fontFamily: "var(--font-plex-mono)" }}
-            />
-            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar name={founder.name} dataKey="v" stroke={color} fill={color} fillOpacity={0.14} strokeWidth={2} />
-            <Radar
-              name="Benchmark"
-              dataKey="bench"
-              stroke="#898781"
-              strokeDasharray="4 3"
-              fill="none"
-              strokeWidth={1.5}
-            />
-            <Tooltip content={<RadarTooltip />} />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
+      <FounderSpider founder={founder} color={color} />
 
       <ul className="mt-1 space-y-1">
         {founder.signals.map((s) => (
@@ -111,13 +165,43 @@ export function FounderCard({ founder, color }: { founder: Founder; color: strin
           </li>
         ))}
       </ul>
+      {coverageNote && (
+        <div className="mt-3 rounded-md bg-page px-3 py-2 text-[11px] leading-relaxed text-mut">
+          {coverageNote}
+        </div>
+      )}
+      {onDeepDive && (
+        <button
+          type="button"
+          onClick={onDeepDive}
+          className="mt-3 w-full rounded-md border border-line px-3 py-2 text-left text-xs font-semibold text-navy hover:border-navy"
+        >
+          Founder deep dive →
+        </button>
+      )}
       <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-2">
         <span className="eyebrow">Sources</span>
-        {founder.corpusSources.map((s) => (
-          <span key={s} className="rounded-sm border border-line bg-page px-1 py-px font-mono text-[9px] text-sub">
-            {s.toUpperCase()}
-          </span>
-        ))}
+        {founder.corpusSources.map((source) => {
+          const href = founder.sourceLinks?.[source];
+          const classes =
+            "rounded-sm border border-line bg-page px-1 py-px font-mono text-[9px] text-sub";
+          return href ? (
+            <a
+              key={source}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className={`${classes} hover:border-navy hover:text-navy`}
+              aria-label={`Open ${source} profile for ${founder.name}`}
+            >
+              {source.toUpperCase()}
+            </a>
+          ) : (
+            <span key={source} className={classes}>
+              {source.toUpperCase()}
+            </span>
+          );
+        })}
         <span
           className="ml-auto flex items-center gap-1.5"
           title="Share of the tracked founder metrics (GitHub activity, publications, socials, …) we have data for"
@@ -462,14 +546,13 @@ export function DecisionRail({
   decision: Decision | undefined;
   onDecide: (d: Decision | undefined) => void;
 }) {
-  const [tick, setTick] = useState<number | null>(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    setTick(0);
-    const id = setInterval(() => setTick((t) => (t ?? 0) + 1), 1000);
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const elapsed = tick === null ? app.firstSignalAgoH * 3600 : app.firstSignalAgoH * 3600 + tick;
+  const elapsed = app.firstSignalAgoH * 3600 + tick;
   const remaining = BUDGET_S - elapsed;
   const overdue = remaining < 0;
   const frac = Math.min(elapsed / BUDGET_S, 1);
@@ -489,7 +572,7 @@ export function DecisionRail({
             className={`font-mono text-lg font-semibold tabular-nums leading-tight ${overdue ? "text-critical" : ""}`}
             suppressHydrationWarning
           >
-            {tick === null ? "—:—:—" : fmt(elapsed)}
+            {fmt(elapsed)}
             <span className="text-mut"> / 24:00:00</span>
           </div>
         </div>

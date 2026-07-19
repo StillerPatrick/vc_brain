@@ -1,0 +1,9 @@
+.git
+.env
+.venv
+__pycache__
+.pytest_cache
+*.db
+node_modules
+.next
+npm-debug.log
